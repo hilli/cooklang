@@ -1,0 +1,16 @@
+{
+  // See https://go.microsoft.com/fwlink/?LinkId=733558
+  // for the documentation about the tasks.json format
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "go test spec",
+      "type": "shell",
+      "command": "/opt/homebrew/bin/go test -v -timeout 30s -run ^TestParseSpecFile$ github.com/hilli/cooklang/spec",
+      "group": {
+        "kind": "test",
+        "isDefault": true
+      }
+    }
+  ]
+}

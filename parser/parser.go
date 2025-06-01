@@ -3,16 +3,19 @@ package parser
 import (
 	"fmt"
 	"io"
+	"strconv"
 	"strings"
 
 	"github.com/hilli/cooklang/lexer"
 	"github.com/hilli/cooklang/token"
 )
 
+type Metadata map[string]string
+
 // Recipe represents a parsed cooklang recipe
 type Recipe struct {
-	Metadata map[string]string `json:"metadata"`
-	Steps    []Step            `json:"steps"`
+	Metadata Metadata `json:"metadata"`
+	Steps    []Step   `json:"steps"`
 }
 
 // Step represents a cooking step with its components
@@ -31,13 +34,13 @@ type Component struct {
 
 // CooklangParser handles parsing of cooklang recipes
 type CooklangParser struct {
-	Version int
+	CooklangSpecVersion int
 }
 
 // New creates a new CooklangParser
 func New() *CooklangParser {
 	return &CooklangParser{
-		Version: 7,
+		CooklangSpecVersion: 7,
 	}
 }
 
@@ -86,6 +89,17 @@ func (p *CooklangParser) parseTokens(l *lexer.Lexer) (*Recipe, error) {
 			}
 			recipe.Metadata = metadata
 
+		case token.NEWLINE:
+			// End current step and start a new one
+			if len(currentStep.Components) > 0 {
+				recipe.Steps = append(recipe.Steps, currentStep)
+				currentStep = Step{Components: []Component{}}
+			}
+
+		case token.COMMENT:
+			// Comments are ignored completely
+			continue
+
 		case token.INGREDIENT:
 			// Parse ingredient
 			ingredient, err := p.parseIngredient(l)
@@ -133,6 +147,9 @@ func (p *CooklangParser) parseTokens(l *lexer.Lexer) (*Recipe, error) {
 	if len(currentStep.Components) > 0 {
 		recipe.Steps = append(recipe.Steps, currentStep)
 	}
+
+	// Compress consecutive text elements in all steps
+	p.compressTextElements(recipe)
 
 	return recipe, nil
 }
@@ -214,31 +231,46 @@ func (p *CooklangParser) parseYAMLMetadata(yamlContent string) (map[string]strin
 func (p *CooklangParser) parseIngredient(l *lexer.Lexer) (Component, error) {
 	component := Component{Type: "ingredient"}
 
-	// Collect ingredient name (may be multiple words)
-	var nameParts []string
+	// Collect IDENT and INT tokens and look for braces
+	var nameTokens []token.Token
 
+	// Collect all consecutive IDENT and INT tokens
 	for {
 		tok := l.NextToken()
-		if tok.Type == token.IDENT {
-			nameParts = append(nameParts, tok.Literal)
+
+		if tok.Type == token.IDENT || tok.Type == token.INT || tok.Type == token.DASH {
+			nameTokens = append(nameTokens, tok)
 		} else if tok.Type == token.LBRACE {
-			// Found opening brace, parse quantity/units
+			// Found braces - all the tokens we collected are part of the name
+			var nameParts []string
+			for _, t := range nameTokens {
+				nameParts = append(nameParts, t.Literal)
+			}
 			quantity, units, err := p.parseQuantityAndUnits(l)
 			if err != nil {
 				return component, err
 			}
 			component.Quantity = quantity
 			component.Units = units
-			break
+			component.Name = strings.Join(nameParts, " ")
+			return component, nil
 		} else {
-			// No braces found, ingredient has no quantity
-			// Put the token back by not consuming it
+			// Hit something that's not IDENT or LBRACE
+			// Put this token back and stop
+			l.PutBackToken(tok)
 			break
 		}
 	}
 
-	if len(nameParts) > 0 {
-		component.Name = strings.Join(nameParts, " ")
+	// No braces found - for ingredients without braces, only use the first token
+	if len(nameTokens) > 0 {
+		component.Name = nameTokens[0].Literal // Only use the first token for ingredients without braces
+		component.Quantity = "some"            // Default quantity for ingredients
+
+		// Put back any additional tokens that were collected (in reverse order)
+		for i := len(nameTokens) - 1; i > 0; i-- {
+			l.PutBackToken(nameTokens[i])
+		}
 	}
 
 	return component, nil
@@ -246,31 +278,46 @@ func (p *CooklangParser) parseIngredient(l *lexer.Lexer) (Component, error) {
 
 // parseCookware parses a cookware token
 func (p *CooklangParser) parseCookware(l *lexer.Lexer) (Component, error) {
-	component := Component{Type: "cookware"}
+	component := Component{Type: "cookware", Quantity: "1"}
 
-	// Collect cookware name (may be multiple words)
+	// Collect IDENT and INT tokens and look for braces
 	var nameParts []string
 
+	// Collect all consecutive IDENT and INT tokens
 	for {
 		tok := l.NextToken()
-		if tok.Type == token.IDENT {
+
+		if tok.Type == token.IDENT || tok.Type == token.INT || tok.Type == token.DASH {
 			nameParts = append(nameParts, tok.Literal)
 		} else if tok.Type == token.LBRACE {
-			// Found opening brace, parse quantity
+			// Found braces - all the IDENTs we collected are part of the name
 			quantity, _, err := p.parseQuantityAndUnits(l)
 			if err != nil {
 				return component, err
 			}
+			if quantity == "some" {
+				quantity = "1"
+			}
 			component.Quantity = quantity
-			break
+			component.Name = strings.Join(nameParts, " ")
+			return component, nil
 		} else {
-			// No braces found, cookware has no quantity
+			// Hit something that's not IDENT or LBRACE
+			// Put this token back and stop
+			l.PutBackToken(tok)
 			break
 		}
 	}
 
+	// No braces found - use only the first IDENT for single-word cookware
 	if len(nameParts) > 0 {
-		component.Name = strings.Join(nameParts, " ")
+		component.Name = nameParts[0] // Only first word without braces
+
+		// Put back any extra IDENT tokens we consumed (in reverse order)
+		for i := len(nameParts) - 1; i >= 1; i-- {
+			// Reconstruct the IDENT tokens we need to put back
+			l.PutBackToken(token.Token{Type: token.IDENT, Literal: nameParts[i]})
+		}
 	}
 
 	return component, nil
@@ -332,7 +379,7 @@ func (p *CooklangParser) parseQuantityAndUnits(l *lexer.Lexer) (string, string, 
 			}
 		} else {
 			// Before % is quantity
-			if tok.Type == token.INT || tok.Type == token.IDENT || tok.Type == token.DASH {
+			if tok.Type == token.INT || tok.Type == token.IDENT || tok.Type == token.DASH || tok.Type == token.DIVIDE || tok.Type == token.PERIOD {
 				quantityParts = append(quantityParts, tok.Literal)
 			}
 		}
@@ -342,7 +389,93 @@ func (p *CooklangParser) parseQuantityAndUnits(l *lexer.Lexer) (string, string, 
 	quantity := strings.Join(quantityParts, "")
 	if quantity == "" {
 		quantity = "some"
+	} else {
+		// Convert fractions to decimals
+		quantity = p.evaluateFraction(quantity)
 	}
 
 	return quantity, units, nil
+}
+
+// evaluateFraction converts fraction strings like "1/2" to decimal representation "0.5"
+// but preserves original format for fractions with leading zeros like "01/2"
+func (p *CooklangParser) evaluateFraction(quantity string) string {
+	// Check if this looks like a fraction (contains "/")
+	if !strings.Contains(quantity, "/") {
+		return quantity
+	}
+
+	// Split by "/" to get numerator and denominator
+	parts := strings.Split(quantity, "/")
+	if len(parts) != 2 {
+		return quantity // Not a simple fraction, return as-is
+	}
+
+	// Check if either part has leading zeros - if so, preserve original format
+	numeratorStr := strings.TrimSpace(parts[0])
+	denominatorStr := strings.TrimSpace(parts[1])
+
+	if (len(numeratorStr) > 1 && numeratorStr[0] == '0') ||
+		(len(denominatorStr) > 1 && denominatorStr[0] == '0') {
+		return quantity // Preserve fractions with leading zeros
+	}
+
+	// Parse numerator and denominator
+	numerator, err1 := strconv.ParseFloat(numeratorStr, 64)
+	denominator, err2 := strconv.ParseFloat(denominatorStr, 64)
+
+	// If either part can't be parsed as a number, return original
+	if err1 != nil || err2 != nil || denominator == 0 {
+		return quantity
+	}
+
+	// Calculate the decimal result
+	result := numerator / denominator
+
+	// Format as string, removing unnecessary trailing zeros
+	return strconv.FormatFloat(result, 'f', -1, 64)
+}
+
+// compressTextElements merges consecutive text components into single components
+func (p *CooklangParser) compressTextElements(recipe *Recipe) {
+	for stepIndex := range recipe.Steps {
+		step := &recipe.Steps[stepIndex]
+		if len(step.Components) <= 1 {
+			continue // No compression needed for steps with 0 or 1 components
+		}
+
+		var compressed []Component
+		var textBuffer []string
+
+		for _, component := range step.Components {
+			if component.Type == "text" {
+				// Accumulate text components
+				textBuffer = append(textBuffer, component.Value)
+			} else {
+				// Non-text component: flush any accumulated text first
+				if len(textBuffer) > 0 {
+					compressedText := strings.Join(textBuffer, " ")
+					compressed = append(compressed, Component{
+						Type:  "text",
+						Value: compressedText,
+					})
+					textBuffer = nil
+				}
+				// Add the non-text component
+				compressed = append(compressed, component)
+			}
+		}
+
+		// Flush any remaining text at the end
+		if len(textBuffer) > 0 {
+			compressedText := strings.Join(textBuffer, " ")
+			compressed = append(compressed, Component{
+				Type:  "text",
+				Value: compressedText,
+			})
+		}
+
+		// Replace the step's components with the compressed version
+		step.Components = compressed
+	}
 }

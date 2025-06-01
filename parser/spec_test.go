@@ -3,11 +3,47 @@ package parser
 // Are we parsing the spec tests of Cooklang
 
 import (
+	"fmt"
 	"testing"
 
-	"github.com/hilli/cooklang/spec_test"
+	"github.com/hilli/cooklang/spec"
+	spec_test "github.com/hilli/cooklang/spec"
 )
 
 func Test_Spec(t *testing.T) {
-	spec_test.ParseSpecFile("../spec/canonical.yaml")
+	var spec spec.CanonicalTests
+	err := spec_test.ParseSpecFile("../spec/canonical.yaml", &spec)
+	if err != nil {
+		t.Fatalf("Failed to parse spec file: %v", err)
+	}
+
+	p := New()
+	for testName, spec := range spec.Tests {
+		t.Run(testName, func(t *testing.T) {
+			source := spec.Source
+			recipe, err := p.ParseString(source)
+			if err != nil {
+				t.Error(err)
+			}
+
+			if len(recipe.Steps) != len(spec.Result.Steps) {
+				t.Error("parsed recipe does not have as many steps as spec", err)
+			}
+
+			for is, specstep := range spec.Result.Steps {
+				_ = is
+				fmt.Println(specstep[0].Type)
+				// if specstep != recipe.Steps[is] {
+				// 	//
+				// }
+			}
+
+			for i, step := range recipe.Steps {
+				fmt.Println("Step", i+1)
+				for _, comp := range step.Components {
+					fmt.Println("\tName:", comp.Name, "Type:", comp.Type, "Value", comp.Value, "Quant:", comp.Quantity, "Units:", comp.Units)
+				}
+			}
+		})
+	}
 }

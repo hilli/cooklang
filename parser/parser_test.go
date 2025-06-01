@@ -2,6 +2,9 @@ package parser
 
 import (
 	"testing"
+
+	"github.com/hilli/cooklang/lexer"
+	"github.com/hilli/cooklang/token"
 )
 
 func TestParseYAMLMetadata(t *testing.T) {
@@ -181,5 +184,242 @@ Add @pasta{400%grams} to boiling @water{}.`
 	}
 	if !foundWater {
 		t.Error("Expected to find water ingredient")
+	}
+}
+
+func TestTextCompression(t *testing.T) {
+	// Test that consecutive text elements are compressed into single elements
+	recipeContent := `Add @salt{} and @pepper{} to taste.`
+
+	parser := New()
+	recipe, err := parser.ParseString(recipeContent)
+	if err != nil {
+		t.Fatalf("ParseString() error = %v", err)
+	}
+
+	if len(recipe.Steps) != 1 {
+		t.Fatalf("Expected 1 step, got %d", len(recipe.Steps))
+	}
+
+	step := recipe.Steps[0]
+
+	// Expected components after compression:
+	// 1. "Add" (text)
+	// 2. salt ingredient
+	// 3. "and" (text)
+	// 4. pepper ingredient
+	// 5. "to taste ." (text)
+
+	expectedComponents := 5
+	if len(step.Components) != expectedComponents {
+		t.Errorf("Expected %d components after compression, got %d", expectedComponents, len(step.Components))
+		for i, comp := range step.Components {
+			t.Logf("Component %d: Type=%s, Value=%q, Name=%q", i, comp.Type, comp.Value, comp.Name)
+		}
+	}
+
+	// Check that text components contain expected values
+	textComponents := []string{}
+	for _, comp := range step.Components {
+		if comp.Type == "text" {
+			textComponents = append(textComponents, comp.Value)
+		}
+	}
+
+	expectedTexts := []string{"Add", "and", "to taste ."}
+	if len(textComponents) != len(expectedTexts) {
+		t.Errorf("Expected %d text components, got %d", len(expectedTexts), len(textComponents))
+	}
+
+	for i, expected := range expectedTexts {
+		if i < len(textComponents) && textComponents[i] != expected {
+			t.Errorf("Text component %d: expected %q, got %q", i, expected, textComponents[i])
+		}
+	}
+}
+
+func TestTextCompressionMultipleConsecutive(t *testing.T) {
+	// Test compression of multiple consecutive text tokens
+	recipeContent := `Boil water for cooking pasta.`
+
+	parser := New()
+	recipe, err := parser.ParseString(recipeContent)
+	if err != nil {
+		t.Fatalf("ParseString() error = %v", err)
+	}
+
+	if len(recipe.Steps) != 1 {
+		t.Fatalf("Expected 1 step, got %d", len(recipe.Steps))
+	}
+
+	step := recipe.Steps[0]
+
+	// Should be compressed into a single text component
+	if len(step.Components) != 1 {
+		t.Errorf("Expected 1 component after compression, got %d", len(step.Components))
+		for i, comp := range step.Components {
+			t.Logf("Component %d: Type=%s, Value=%q", i, comp.Type, comp.Value)
+		}
+	}
+
+	if step.Components[0].Type != "text" {
+		t.Errorf("Expected text component, got %s", step.Components[0].Type)
+	}
+
+	expectedText := "Boil water for cooking pasta ."
+	if step.Components[0].Value != expectedText {
+		t.Errorf("Expected compressed text %q, got %q", expectedText, step.Components[0].Value)
+	}
+}
+
+func TestDebugCookware(t *testing.T) {
+	// Test just the lexer first
+	input := "#pan{}"
+	l := lexer.New(input)
+
+	tok1 := l.NextToken() // Should be #
+	tok2 := l.NextToken() // Should be "pan"
+	tok3 := l.NextToken() // Should be {
+	tok4 := l.NextToken() // Should be }
+	tok5 := l.NextToken() // Should be EOF
+
+	t.Logf("Token 1: Type=%s, Literal='%s'", tok1.Type, tok1.Literal)
+	t.Logf("Token 2: Type=%s, Literal='%s'", tok2.Type, tok2.Literal)
+	t.Logf("Token 3: Type=%s, Literal='%s'", tok3.Type, tok3.Literal)
+	t.Logf("Token 4: Type=%s, Literal='%s'", tok4.Type, tok4.Literal)
+	t.Logf("Token 5: Type=%s, Literal='%s'", tok5.Type, tok5.Literal)
+}
+
+func TestDebugMultiWordCookware(t *testing.T) {
+	// Test multi-word cookware
+	input := "#large skillet{1}"
+	l := lexer.New(input)
+
+	tokenCount := 0
+	for {
+		tok := l.NextToken()
+		tokenCount++
+		t.Logf("Token %d: Type=%s, Literal='%s'", tokenCount, tok.Type, tok.Literal)
+		if tok.Type == token.EOF {
+			break
+		}
+		if tokenCount > 10 { // Safety break
+			t.Fatal("Too many tokens, possible infinite loop")
+		}
+	}
+}
+
+func TestDebugCookwareParser(t *testing.T) {
+	// Test the actual parser
+	p := New()
+	recipe, err := p.ParseString("#large skillet{1}")
+	if err != nil {
+		t.Fatalf("Error parsing: %v", err)
+	}
+
+	t.Logf("Number of steps: %d", len(recipe.Steps))
+	for i, step := range recipe.Steps {
+		t.Logf("Step %d has %d components", i, len(step.Components))
+		for j, comp := range step.Components {
+			t.Logf("  Component %d: Type=%s, Name='%s', Value='%s', Quantity='%s'",
+				j, comp.Type, comp.Name, comp.Value, comp.Quantity)
+		}
+	}
+}
+
+func TestDebugFullSentence(t *testing.T) {
+	// Test the full sentence
+	p := New()
+	recipe, err := p.ParseString("Heat oil in a #large skillet{1} over medium heat.")
+	if err != nil {
+		t.Fatalf("Error parsing: %v", err)
+	}
+
+	t.Logf("Number of steps: %d", len(recipe.Steps))
+	for i, step := range recipe.Steps {
+		t.Logf("Step %d has %d components", i, len(step.Components))
+		for j, comp := range step.Components {
+			t.Logf("  Component %d: Type=%s, Name='%s', Value='%s', Quantity='%s'",
+				j, comp.Type, comp.Name, comp.Value, comp.Quantity)
+		}
+	}
+
+	// Verify we have a cookware component
+	found := false
+	for _, step := range recipe.Steps {
+		for _, comp := range step.Components {
+			if comp.Type == "cookware" && comp.Name == "large skillet" && comp.Quantity == "1" {
+				found = true
+				break
+			}
+		}
+	}
+
+	if !found {
+		t.Error("Expected cookware component 'large skillet' with quantity '1' not found")
+	}
+}
+
+func TestCookwareDefaultQuantity(t *testing.T) {
+	p := New()
+
+	// Test cookware with empty braces (should default to "1")
+	recipe1, err := p.ParseString("#frying pan{}")
+	if err != nil {
+		t.Fatalf("Error parsing: %v", err)
+	}
+
+	// Check that default quantity is "1" for cookware
+	found := false
+	for _, step := range recipe1.Steps {
+		for _, comp := range step.Components {
+			if comp.Type == "cookware" && comp.Name == "frying pan" {
+				found = true
+				if comp.Quantity != "1" {
+					t.Errorf("Expected cookware default quantity '1', got '%s'", comp.Quantity)
+				}
+			}
+		}
+	}
+	if !found {
+		t.Error("Cookware component not found")
+	}
+
+	// Test cookware without braces (should also default to "1")
+	recipe2, err := p.ParseString("Simmer in #pan for some time")
+	if err != nil {
+		t.Fatalf("Error parsing: %v", err)
+	}
+
+	found = false
+	for _, step := range recipe2.Steps {
+		for _, comp := range step.Components {
+			if comp.Type == "cookware" && comp.Name == "pan" {
+				found = true
+				if comp.Quantity != "1" {
+					t.Errorf("Expected cookware default quantity '1', got '%s'", comp.Quantity)
+				}
+			}
+		}
+	}
+	if !found {
+		t.Error("Cookware component not found")
+	}
+}
+
+func TestDebugCookwareWithoutBraces(t *testing.T) {
+	p := New()
+	recipe, err := p.ParseString("Simmer in #pan for some time")
+	if err != nil {
+		t.Fatalf("Error parsing: %v", err)
+	}
+
+	t.Logf("Number of steps: %d", len(recipe.Steps))
+	for i, step := range recipe.Steps {
+		t.Logf("Step %d has %d components", i, len(step.Components))
+		for j, comp := range step.Components {
+			t.Logf("  Component %d: Type=%s, Name='%s', Value='%s', Quantity='%s'",
+				j, comp.Type, comp.Name, comp.Value, comp.Quantity)
+		}
 	}
 }

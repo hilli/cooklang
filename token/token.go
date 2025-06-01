@@ -16,6 +16,7 @@ const (
 
 	COMMENT = "-- "
 	SECTION = "="
+	NEWLINE = "NEWLINE"
 
 	IDENT = "IDENT"
 	INT   = "INT"

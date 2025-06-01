@@ -10,7 +10,8 @@ type Lexer struct {
 	input        string
 	position     int
 	readPosition int
-	ch           byte // Only supports ASCII
+	ch           byte          // Only supports ASCII
+	tokenBuffer  []token.Token // Buffer for putback tokens
 }
 
 func New(input string) *Lexer {
@@ -30,18 +31,35 @@ func (l *Lexer) readChar() {
 }
 
 func (l *Lexer) NextToken() token.Token {
+	// Check buffer first
+	if len(l.tokenBuffer) > 0 {
+		tok := l.tokenBuffer[0]
+		l.tokenBuffer = l.tokenBuffer[1:]
+		return tok
+	}
+
 	var tok token.Token
 
 	l.skipWhitespace()
 
 	switch l.ch {
+	case '\n':
+		tok = newToken(token.NEWLINE, l.ch)
+		l.readChar()
+		return tok
 	case '=': // = or ==
 		tok = newToken(token.SECTION, l.ch)
 	case '-':
-		if l.peekChar() == '-' && l.peekCharAt(2) == '-' {
-			// Check if we're at the beginning of the input or after a newline
-			if l.position == 0 || (l.position > 0 && l.input[l.position-1] == '\n') {
-				return l.readYAMLFrontmatter()
+		if l.peekChar() == '-' {
+			if l.peekCharAt(2) == '-' {
+				// Check if we're at the beginning of the input or after a newline
+				if l.position == 0 || (l.position > 0 && l.input[l.position-1] == '\n') {
+					return l.readYAMLFrontmatter()
+				}
+			} else {
+				// Single line comment starting with --
+				// Comments can appear anywhere in a line
+				return l.readComment()
 			}
 		}
 		tok = newToken(token.DASH, l.ch)
@@ -64,11 +82,29 @@ func (l *Lexer) NextToken() token.Token {
 	case '}':
 		tok = newToken(token.RBRACE, l.ch)
 	case '@':
-		tok = newToken(token.INGREDIENT, l.ch)
+		// Only treat as INGREDIENT if immediately followed by a letter, underscore, or digit
+		if isLetter(l.peekChar()) || l.peekChar() == '_' || isDigit(l.peekChar()) {
+			tok = newToken(token.INGREDIENT, l.ch)
+		} else {
+			// Treat as regular text if followed by whitespace or other characters
+			tok = newToken(token.ILLEGAL, l.ch)
+		}
 	case '#':
-		tok = newToken(token.COOKWARE, l.ch)
+		// Only treat as COOKWARE if immediately followed by a letter, underscore, or digit
+		if isLetter(l.peekChar()) || l.peekChar() == '_' || isDigit(l.peekChar()) {
+			tok = newToken(token.COOKWARE, l.ch)
+		} else {
+			// Treat as regular text if followed by whitespace or other characters
+			tok = newToken(token.ILLEGAL, l.ch)
+		}
 	case '~':
-		tok = newToken(token.COOKTIME, l.ch)
+		// Only treat as COOKTIME if immediately followed by a letter, underscore, or opening brace
+		if isLetter(l.peekChar()) || l.peekChar() == '_' || l.peekChar() == '{' {
+			tok = newToken(token.COOKTIME, l.ch)
+		} else {
+			// Treat as regular text if followed by whitespace, digit, or other characters
+			tok = newToken(token.ILLEGAL, l.ch)
+		}
 	case 0:
 		tok.Literal = ""
 		tok.Type = token.EOF
@@ -103,7 +139,7 @@ func (l *Lexer) peekChar() byte {
 }
 
 func (l *Lexer) skipWhitespace() {
-	for l.ch == ' ' || l.ch == '\t' || l.ch == '\n' || l.ch == '\r' {
+	for l.ch == ' ' || l.ch == '\t' || l.ch == '\r' {
 		l.readChar()
 	}
 }
@@ -195,4 +231,56 @@ func (l *Lexer) readYAMLFrontmatter() token.Token {
 		Type:    token.YAML_FRONTMATTER,
 		Literal: yamlContent,
 	}
+}
+
+func (l *Lexer) readComment() token.Token {
+	// Skip the opening --
+	l.readChar() // skip first -
+	l.readChar() // skip second -
+
+	// Read the comment content until end of line or EOF
+	start := l.position
+	for l.ch != '\n' && l.ch != '\r' && l.ch != 0 {
+		l.readChar()
+	}
+
+	// Extract the comment content
+	commentContent := l.input[start:l.position]
+
+	// If we stopped at a newline, consume it to prevent extra step creation
+	if l.ch == '\r' && l.peekChar() == '\n' {
+		l.readChar() // skip \r
+		l.readChar() // skip \n
+	} else if l.ch == '\n' {
+		l.readChar() // skip \n
+	}
+
+	return token.Token{
+		Type:    token.COMMENT,
+		Literal: commentContent,
+	}
+}
+
+// PeekToken returns the next token without advancing the lexer position
+func (l *Lexer) PeekToken() token.Token {
+	// Save current state
+	savedPosition := l.position
+	savedReadPosition := l.readPosition
+	savedCh := l.ch
+
+	// Get next token
+	tok := l.NextToken()
+
+	// Restore state
+	l.position = savedPosition
+	l.readPosition = savedReadPosition
+	l.ch = savedCh
+
+	return tok
+}
+
+// PutBackToken puts a token back into the buffer to be returned by the next NextToken call
+func (l *Lexer) PutBackToken(tok token.Token) {
+	// Add to the beginning of the buffer
+	l.tokenBuffer = append([]token.Token{tok}, l.tokenBuffer...)
 }

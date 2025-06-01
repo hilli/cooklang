@@ -1,4 +1,4 @@
-package spec_test
+package spec
 
 type CanonicalTests struct {
 	Tests map[string]Test `yaml:"tests"`

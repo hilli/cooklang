@@ -7,7 +7,7 @@ import (
 )
 
 func TestNextToken(t *testing.T) {
-	input := `=@~#(){},/5;`
+	input := `=@a~{}#c{}(),/5;`
 
 	tests := []struct {
 		expectedType    token.TokenType
@@ -15,12 +15,16 @@ func TestNextToken(t *testing.T) {
 	}{
 		{token.SECTION, "="},
 		{token.INGREDIENT, "@"},
+		{token.IDENT, "a"},
 		{token.COOKTIME, "~"},
-		{token.COOKWARE, "#"},
-		{token.LPAREN, "("},
-		{token.RPAREN, ")"},
 		{token.LBRACE, "{"},
 		{token.RBRACE, "}"},
+		{token.COOKWARE, "#"},
+		{token.IDENT, "c"},
+		{token.LBRACE, "{"},
+		{token.RBRACE, "}"},
+		{token.LPAREN, "("},
+		{token.RPAREN, ")"},
 		{token.COMMA, ","},
 		{token.DIVIDE, "/"},
 		{token.INT, "5"},
