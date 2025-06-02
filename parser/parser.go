@@ -90,10 +90,25 @@ func (p *CooklangParser) parseTokens(l *lexer.Lexer) (*Recipe, error) {
 			recipe.Metadata = metadata
 
 		case token.NEWLINE:
-			// End current step and start a new one
-			if len(currentStep.Components) > 0 {
-				recipe.Steps = append(recipe.Steps, currentStep)
-				currentStep = Step{Components: []Component{}}
+			// Handle newlines: single newline = space, double newline = new step
+			nextTok := l.NextToken()
+			if nextTok.Type == token.NEWLINE {
+				// Double newline (blank line) - create new step
+				if len(currentStep.Components) > 0 {
+					recipe.Steps = append(recipe.Steps, currentStep)
+					currentStep = Step{Components: []Component{}}
+				}
+			} else {
+				// Single newline - convert to space
+				if len(currentStep.Components) > 0 {
+					currentStep.Components = append(currentStep.Components, Component{
+						Type:  "text",
+						Value: " ",
+					})
+				}
+				// Put the next token back into the stream by continuing the loop with it
+				tok = nextTok
+				continue
 			}
 
 		case token.COMMENT:

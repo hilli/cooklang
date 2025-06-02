@@ -7,15 +7,16 @@ import (
 )
 
 type Lexer struct {
-	input        string
-	position     int
-	readPosition int
-	ch           byte          // Only supports ASCII
-	tokenBuffer  []token.Token // Buffer for putback tokens
+	input         string
+	position      int
+	readPosition  int
+	ch            byte          // Only supports ASCII
+	tokenBuffer   []token.Token // Buffer for putback tokens
+	documentStart bool          // True if we're still at the very beginning of the document
 }
 
 func New(input string) *Lexer {
-	l := &Lexer{input: input}
+	l := &Lexer{input: input, documentStart: true}
 	l.readChar()
 	return l
 }
@@ -42,6 +43,11 @@ func (l *Lexer) NextToken() token.Token {
 
 	l.skipWhitespace()
 
+	// If we encounter any non-whitespace content, we're no longer at document start
+	if l.documentStart && l.ch != 0 && l.ch != '\n' && !(l.ch == '-' && l.peekChar() == '-' && l.peekCharAt(2) == '-' && l.position == 0) {
+		l.documentStart = false
+	}
+
 	switch l.ch {
 	case '\n':
 		tok = newToken(token.NEWLINE, l.ch)
@@ -52,14 +58,16 @@ func (l *Lexer) NextToken() token.Token {
 	case '-':
 		if l.peekChar() == '-' {
 			if l.peekCharAt(2) == '-' {
-				// Check if we're at the beginning of the input or after a newline
-				if l.position == 0 || (l.position > 0 && l.input[l.position-1] == '\n') {
+				// Check if we're at the very beginning of the document
+				if l.documentStart && l.position == 0 {
 					return l.readYAMLFrontmatter()
 				}
 			} else {
 				// Single line comment starting with --
-				// Comments can appear anywhere in a line
-				return l.readComment()
+				// Comments should only be recognized at start of line or after whitespace
+				if l.position == 0 || (l.position > 0 && (l.input[l.position-1] == '\n' || l.input[l.position-1] == ' ' || l.input[l.position-1] == '\t')) {
+					return l.readComment()
+				}
 			}
 		}
 		tok = newToken(token.DASH, l.ch)

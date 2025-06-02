@@ -75,6 +75,10 @@ tags:
 
 	// Next should be recipe content tokens
 	tok = l.NextToken()
+	// Skip any newlines after the frontmatter
+	if tok.Type == token.NEWLINE {
+		tok = l.NextToken()
+	}
 	if tok.Type != token.IDENT || tok.Literal != "Cook" {
 		t.Fatalf("expected Cook token, got type %q, literal %q", tok.Type, tok.Literal)
 	}
