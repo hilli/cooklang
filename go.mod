@@ -3,7 +3,7 @@ module github.com/hilli/cooklang
 go 1.24.3
 
 // yaml lib used to read the cooklang spec only. Swap to github.com/yaml/go-yaml at some point later this month (/Hilli 2025-06-01)
-require gopkg.in/yaml.v3 v3.0.1
+require github.com/goccy/go-yaml v1.18.0
 
 require (
 	dario.cat/mergo v1.0.0 // indirect
@@ -53,6 +53,7 @@ require (
 	golang.org/x/sys v0.32.0 // indirect
 	golang.org/x/term v0.31.0 // indirect
 	gopkg.in/warnings.v0 v0.1.2 // indirect
+	gopkg.in/yaml.v3 v3.0.1 // indirect
 	mvdan.cc/sh/v3 v3.11.0 // indirect
 )
 
