@@ -20,16 +20,16 @@ type Recipe struct {
 
 // Step represents a cooking step with its components
 type Step struct {
-	Components []Component `json:"components"`
+	Components []Component `json:"components" yaml:"steps"`
 }
 
 // Component represents a component within a step
 type Component struct {
-	Type     string `json:"type"` // "text", "ingredient", "cookware", "timer"
-	Value    string `json:"value,omitempty"`
-	Name     string `json:"name,omitempty"`
-	Quantity string `json:"quantity,omitempty"`
-	Units    string `json:"units,omitempty"`
+	Type     string `json:"type" yaml:"type"` // "text", "ingredient", "cookware", "timer"
+	Value    string `json:"value,omitempty" yaml:"value,omitempty"`
+	Name     string `json:"name,omitempty" yaml:"name,omitempty"`
+	Quantity string `json:"quantity,omitempty" yaml:"quantity,omitempty"`
+	Unit     string `json:"unit,omitempty" yaml:"unit,omitempty"`
 }
 
 // CooklangParser handles parsing of cooklang recipes
@@ -227,7 +227,7 @@ func (p *CooklangParser) parseYAMLMetadata(yamlContent string) (map[string]strin
 	return metadata, nil
 }
 
-// parseIngredient parses an ingredient token and its quantity/units
+// parseIngredient parses an ingredient token and its quantity/unit
 func (p *CooklangParser) parseIngredient(l *lexer.Lexer) (Component, error) {
 	component := Component{Type: "ingredient"}
 
@@ -246,12 +246,12 @@ func (p *CooklangParser) parseIngredient(l *lexer.Lexer) (Component, error) {
 			for _, t := range nameTokens {
 				nameParts = append(nameParts, t.Literal)
 			}
-			quantity, units, err := p.parseQuantityAndUnits(l)
+			quantity, unit, err := p.parseQuantityAndUnit(l)
 			if err != nil {
 				return component, err
 			}
 			component.Quantity = quantity
-			component.Units = units
+			component.Unit = unit
 			component.Name = strings.Join(nameParts, " ")
 			return component, nil
 		} else {
@@ -291,7 +291,7 @@ func (p *CooklangParser) parseCookware(l *lexer.Lexer) (Component, error) {
 			nameParts = append(nameParts, tok.Literal)
 		} else if tok.Type == token.LBRACE {
 			// Found braces - all the IDENTs we collected are part of the name
-			quantity, _, err := p.parseQuantityAndUnits(l)
+			quantity, _, err := p.parseQuantityAndUnit(l)
 			if err != nil {
 				return component, err
 			}
@@ -334,23 +334,23 @@ func (p *CooklangParser) parseTimer(l *lexer.Lexer) (Component, error) {
 		tok = l.NextToken()
 	}
 
-	// Check for quantity/units in braces
+	// Check for quantity/unit in braces
 	if tok.Type == token.LBRACE {
-		quantity, units, err := p.parseQuantityAndUnits(l)
+		quantity, unit, err := p.parseQuantityAndUnit(l)
 		if err != nil {
 			return component, err
 		}
 		component.Quantity = quantity
-		component.Units = units
+		component.Unit = unit
 	}
 
 	return component, nil
 }
 
-// parseQuantityAndUnits parses quantity and units from within braces
-func (p *CooklangParser) parseQuantityAndUnits(l *lexer.Lexer) (string, string, error) {
+// parseQuantityAndUnit parses quantity and units from within braces
+func (p *CooklangParser) parseQuantityAndUnit(l *lexer.Lexer) (string, string, error) {
 	var quantityParts []string
-	var units string
+	var unit string
 	var foundPercent bool
 
 	for {
@@ -360,7 +360,7 @@ func (p *CooklangParser) parseQuantityAndUnits(l *lexer.Lexer) (string, string, 
 		}
 
 		if tok.Type == token.EOF {
-			return "", "", fmt.Errorf("unexpected EOF while parsing quantity/units")
+			return "", "", fmt.Errorf("unexpected EOF while parsing quantity/unit")
 		}
 
 		if tok.Type == token.PERCENT {
@@ -371,10 +371,10 @@ func (p *CooklangParser) parseQuantityAndUnits(l *lexer.Lexer) (string, string, 
 		if foundPercent {
 			// Everything after % is units
 			if tok.Type == token.IDENT {
-				if units == "" {
-					units = tok.Literal
+				if unit == "" {
+					unit = tok.Literal
 				} else {
-					units += " " + tok.Literal
+					unit += " " + tok.Literal
 				}
 			}
 		} else {
@@ -394,7 +394,7 @@ func (p *CooklangParser) parseQuantityAndUnits(l *lexer.Lexer) (string, string, 
 		quantity = p.evaluateFraction(quantity)
 	}
 
-	return quantity, units, nil
+	return quantity, unit, nil
 }
 
 // evaluateFraction converts fraction strings like "1/2" to decimal representation "0.5"

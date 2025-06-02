@@ -53,8 +53,8 @@ func main() {
 				fmt.Printf("  [%d] 🥕 Ingredient: %s", j+1, component.Name)
 				if component.Quantity != "" {
 					fmt.Printf(" (%s", component.Quantity)
-					if component.Units != "" {
-						fmt.Printf(" %s", component.Units)
+					if component.Unit != "" {
+						fmt.Printf(" %s", component.Unit)
 					}
 					fmt.Printf(")")
 				}
@@ -72,8 +72,8 @@ func main() {
 				}
 				if component.Quantity != "" {
 					fmt.Printf(" (%s", component.Quantity)
-					if component.Units != "" {
-						fmt.Printf(" %s", component.Units)
+					if component.Unit != "" {
+						fmt.Printf(" %s", component.Unit)
 					}
 					fmt.Printf(")")
 				}

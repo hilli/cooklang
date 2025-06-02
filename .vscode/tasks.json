@@ -6,7 +6,7 @@
     {
       "label": "go test spec",
       "type": "shell",
-      "command": "/opt/homebrew/bin/go test -v -timeout 30s -run ^TestParseSpecFile$ github.com/hilli/cooklang/spec",
+      "command": "/opt/homebrew/bin/go test -v -timeout 30s -run ^Test_Spec$ github.com/hilli/cooklang/spec",
       "group": {
         "kind": "test",
         "isDefault": true
