@@ -9,5 +9,5 @@ tasks:
   test-spec:
     desc: Run only the spec tests
     cmds:
-      - go test -v ./parser -run Test_Spec
+      - go test -v ./spec -run Test_Spec
 
