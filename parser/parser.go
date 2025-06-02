@@ -6,32 +6,31 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/hilli/cooklang"
 	"github.com/hilli/cooklang/lexer"
 	"github.com/hilli/cooklang/token"
 )
 
-// type Metadata map[string]string
+type Metadata map[string]string
 
-// // Recipe represents a parsed cooklang recipe
-// type Recipe struct {
-// 	Metadata Metadata `json:"metadata"`
-// 	Steps    []Step   `json:"steps"`
-// }
+// Recipe represents a parsed cooklang recipe
+type Recipe struct {
+	Metadata Metadata `json:"metadata"`
+	Steps    []Step   `json:"steps"`
+}
 
-// // Step represents a cooking step with its components
-// type Step struct {
-// 	Components []Component `json:"components"`
-// }
+// Step represents a cooking step with its components
+type Step struct {
+	Components []Component `json:"components" yaml:"steps"`
+}
 
-// // Component represents a component within a step
-// type Component struct {
-// 	Type     string `json:"type"` // "text", "ingredient", "cookware", "timer"
-// 	Value    string `json:"value,omitempty"`
-// 	Name     string `json:"name,omitempty"`
-// 	Quantity string `json:"quantity,omitempty"`
-// 	Units    string `json:"units,omitempty"`
-// }
+// Component represents a component within a step
+type Component struct {
+	Type     string `json:"type" yaml:"type"` // "text", "ingredient", "cookware", "timer"
+	Value    string `json:"value,omitempty" yaml:"value,omitempty"`
+	Name     string `json:"name,omitempty" yaml:"name,omitempty"`
+	Quantity string `json:"quantity,omitempty" yaml:"quantity,omitempty"`
+	Unit     string `json:"unit,omitempty" yaml:"unit,omitempty"`
+}
 
 // CooklangParser handles parsing of cooklang recipes
 type CooklangParser struct {
@@ -46,18 +45,18 @@ func New() *CooklangParser {
 }
 
 // ParseString parses a cooklang recipe from a string
-func (p *CooklangParser) ParseString(input string) (*cooklang.Recipe, error) {
+func (p *CooklangParser) ParseString(input string) (*Recipe, error) {
 	l := lexer.New(input)
 	return p.parseTokens(l)
 }
 
 // ParseBytes parses a cooklang recipe from a byte slice
-func (p *CooklangParser) ParseBytes(input []byte) (*cooklang.Recipe, error) {
+func (p *CooklangParser) ParseBytes(input []byte) (*Recipe, error) {
 	return p.ParseString(string(input))
 }
 
 // ParseReader parses a cooklang recipe from an io.Reader
-func (p *CooklangParser) ParseReader(reader io.Reader) (*cooklang.Recipe, error) {
+func (p *CooklangParser) ParseReader(reader io.Reader) (*Recipe, error) {
 	content, err := io.ReadAll(reader)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read input: %w", err)
@@ -66,14 +65,14 @@ func (p *CooklangParser) ParseReader(reader io.Reader) (*cooklang.Recipe, error)
 }
 
 // parseTokens handles the actual parsing logic
-func (p *CooklangParser) parseTokens(l *lexer.Lexer) (*cooklang.Recipe, error) {
-	recipe := &cooklang.Recipe{
+func (p *CooklangParser) parseTokens(l *lexer.Lexer) (*Recipe, error) {
+	recipe := &Recipe{
 		Metadata: make(map[string]string),
-		Steps:    []cooklang.Step{},
+		Steps:    []Step{},
 	}
 
 	// Parse tokens and build recipe
-	currentStep := cooklang.Step{Components: []cooklang.Component{}}
+	currentStep := Step{Components: []Component{}}
 
 	for {
 		tok := l.NextToken()
@@ -94,7 +93,7 @@ func (p *CooklangParser) parseTokens(l *lexer.Lexer) (*cooklang.Recipe, error) {
 			// End current step and start a new one
 			if len(currentStep.Components) > 0 {
 				recipe.Steps = append(recipe.Steps, currentStep)
-				currentStep = cooklang.Step{Components: []cooklang.Component{}}
+				currentStep = Step{Components: []Component{}}
 			}
 
 		case token.COMMENT:
@@ -127,14 +126,14 @@ func (p *CooklangParser) parseTokens(l *lexer.Lexer) (*cooklang.Recipe, error) {
 
 		case token.IDENT:
 			// Regular text
-			currentStep.Components = append(currentStep.Components, cooklang.Component{
+			currentStep.Components = append(currentStep.Components, Component{
 				Type:  "text",
 				Value: tok.Literal,
 			})
 
 		default:
 			// Other tokens like punctuation, numbers, etc.
-			currentStep.Components = append(currentStep.Components, cooklang.Component{
+			currentStep.Components = append(currentStep.Components, Component{
 				Type:  "text",
 				Value: tok.Literal,
 			})
@@ -228,9 +227,9 @@ func (p *CooklangParser) parseYAMLMetadata(yamlContent string) (map[string]strin
 	return metadata, nil
 }
 
-// parseIngredient parses an ingredient token and its quantity/units
-func (p *CooklangParser) parseIngredient(l *lexer.Lexer) (cooklang.Component, error) {
-	component := cooklang.Component{Type: "ingredient"}
+// parseIngredient parses an ingredient token and its quantity/unit
+func (p *CooklangParser) parseIngredient(l *lexer.Lexer) (Component, error) {
+	component := Component{Type: "ingredient"}
 
 	// Collect IDENT and INT tokens and look for braces
 	var nameTokens []token.Token
@@ -247,12 +246,12 @@ func (p *CooklangParser) parseIngredient(l *lexer.Lexer) (cooklang.Component, er
 			for _, t := range nameTokens {
 				nameParts = append(nameParts, t.Literal)
 			}
-			quantity, units, err := p.parseQuantityAndUnits(l)
+			quantity, unit, err := p.parseQuantityAndUnit(l)
 			if err != nil {
 				return component, err
 			}
 			component.Quantity = quantity
-			component.Units = units
+			component.Unit = unit
 			component.Name = strings.Join(nameParts, " ")
 			return component, nil
 		} else {
@@ -278,8 +277,8 @@ func (p *CooklangParser) parseIngredient(l *lexer.Lexer) (cooklang.Component, er
 }
 
 // parseCookware parses a cookware token
-func (p *CooklangParser) parseCookware(l *lexer.Lexer) (cooklang.Component, error) {
-	component := cooklang.Component{Type: "cookware", Quantity: "1"}
+func (p *CooklangParser) parseCookware(l *lexer.Lexer) (Component, error) {
+	component := Component{Type: "cookware", Quantity: "1"}
 
 	// Collect IDENT and INT tokens and look for braces
 	var nameParts []string
@@ -292,7 +291,7 @@ func (p *CooklangParser) parseCookware(l *lexer.Lexer) (cooklang.Component, erro
 			nameParts = append(nameParts, tok.Literal)
 		} else if tok.Type == token.LBRACE {
 			// Found braces - all the IDENTs we collected are part of the name
-			quantity, _, err := p.parseQuantityAndUnits(l)
+			quantity, _, err := p.parseQuantityAndUnit(l)
 			if err != nil {
 				return component, err
 			}
@@ -325,8 +324,8 @@ func (p *CooklangParser) parseCookware(l *lexer.Lexer) (cooklang.Component, erro
 }
 
 // parseTimer parses a timer token
-func (p *CooklangParser) parseTimer(l *lexer.Lexer) (cooklang.Component, error) {
-	component := cooklang.Component{Type: "timer"}
+func (p *CooklangParser) parseTimer(l *lexer.Lexer) (Component, error) {
+	component := Component{Type: "timer"}
 
 	// Check if next token is an identifier (timer name) or brace (anonymous timer)
 	tok := l.NextToken()
@@ -335,23 +334,23 @@ func (p *CooklangParser) parseTimer(l *lexer.Lexer) (cooklang.Component, error) 
 		tok = l.NextToken()
 	}
 
-	// Check for quantity/units in braces
+	// Check for quantity/unit in braces
 	if tok.Type == token.LBRACE {
-		quantity, units, err := p.parseQuantityAndUnits(l)
+		quantity, unit, err := p.parseQuantityAndUnit(l)
 		if err != nil {
 			return component, err
 		}
 		component.Quantity = quantity
-		component.Units = units
+		component.Unit = unit
 	}
 
 	return component, nil
 }
 
-// parseQuantityAndUnits parses quantity and units from within braces
-func (p *CooklangParser) parseQuantityAndUnits(l *lexer.Lexer) (string, string, error) {
+// parseQuantityAndUnit parses quantity and units from within braces
+func (p *CooklangParser) parseQuantityAndUnit(l *lexer.Lexer) (string, string, error) {
 	var quantityParts []string
-	var units string
+	var unit string
 	var foundPercent bool
 
 	for {
@@ -361,7 +360,7 @@ func (p *CooklangParser) parseQuantityAndUnits(l *lexer.Lexer) (string, string, 
 		}
 
 		if tok.Type == token.EOF {
-			return "", "", fmt.Errorf("unexpected EOF while parsing quantity/units")
+			return "", "", fmt.Errorf("unexpected EOF while parsing quantity/unit")
 		}
 
 		if tok.Type == token.PERCENT {
@@ -372,10 +371,10 @@ func (p *CooklangParser) parseQuantityAndUnits(l *lexer.Lexer) (string, string, 
 		if foundPercent {
 			// Everything after % is units
 			if tok.Type == token.IDENT {
-				if units == "" {
-					units = tok.Literal
+				if unit == "" {
+					unit = tok.Literal
 				} else {
-					units += " " + tok.Literal
+					unit += " " + tok.Literal
 				}
 			}
 		} else {
@@ -395,7 +394,7 @@ func (p *CooklangParser) parseQuantityAndUnits(l *lexer.Lexer) (string, string, 
 		quantity = p.evaluateFraction(quantity)
 	}
 
-	return quantity, units, nil
+	return quantity, unit, nil
 }
 
 // evaluateFraction converts fraction strings like "1/2" to decimal representation "0.5"
@@ -438,14 +437,14 @@ func (p *CooklangParser) evaluateFraction(quantity string) string {
 }
 
 // compressTextElements merges consecutive text components into single components
-func (p *CooklangParser) compressTextElements(recipe *cooklang.Recipe) {
+func (p *CooklangParser) compressTextElements(recipe *Recipe) {
 	for stepIndex := range recipe.Steps {
 		step := &recipe.Steps[stepIndex]
 		if len(step.Components) <= 1 {
 			continue // No compression needed for steps with 0 or 1 components
 		}
 
-		var compressed []cooklang.Component
+		var compressed []Component
 		var textBuffer []string
 
 		for _, component := range step.Components {
@@ -456,7 +455,7 @@ func (p *CooklangParser) compressTextElements(recipe *cooklang.Recipe) {
 				// Non-text component: flush any accumulated text first
 				if len(textBuffer) > 0 {
 					compressedText := strings.Join(textBuffer, " ")
-					compressed = append(compressed, cooklang.Component{
+					compressed = append(compressed, Component{
 						Type:  "text",
 						Value: compressedText,
 					})
@@ -470,7 +469,7 @@ func (p *CooklangParser) compressTextElements(recipe *cooklang.Recipe) {
 		// Flush any remaining text at the end
 		if len(textBuffer) > 0 {
 			compressedText := strings.Join(textBuffer, " ")
-			compressed = append(compressed, cooklang.Component{
+			compressed = append(compressed, Component{
 				Type:  "text",
 				Value: compressedText,
 			})
