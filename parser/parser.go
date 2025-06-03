@@ -29,7 +29,7 @@ type Component struct {
 	Value    string `json:"value,omitempty" yaml:"value,omitempty"`
 	Name     string `json:"name,omitempty" yaml:"name,omitempty"`
 	Quantity string `json:"quantity,omitempty" yaml:"quantity,omitempty"`
-	Unit     string `json:"unit,omitempty" yaml:"unit,omitempty"`
+	Unit     string `json:"unit,omitempty" yaml:"units,omitempty"`
 }
 
 // CooklangParser handles parsing of cooklang recipes
@@ -98,6 +98,9 @@ func (p *CooklangParser) parseTokens(l *lexer.Lexer) (*Recipe, error) {
 					recipe.Steps = append(recipe.Steps, currentStep)
 					currentStep = Step{Components: []Component{}}
 				}
+			} else if nextTok.Type == token.EOF {
+				// End of file after newline - don't add space, just break
+				break
 			} else {
 				// Single newline - convert to space
 				if len(currentStep.Components) > 0 {
@@ -138,6 +141,13 @@ func (p *CooklangParser) parseTokens(l *lexer.Lexer) (*Recipe, error) {
 				return nil, fmt.Errorf("failed to parse timer: %w", err)
 			}
 			currentStep.Components = append(currentStep.Components, timer)
+
+		case token.WHITESPACE:
+			// Handle whitespace as text component
+			currentStep.Components = append(currentStep.Components, Component{
+				Type:  "text",
+				Value: tok.Literal,
+			})
 
 		case token.IDENT:
 			// Regular text
@@ -249,11 +259,11 @@ func (p *CooklangParser) parseIngredient(l *lexer.Lexer) (Component, error) {
 	// Collect IDENT and INT tokens and look for braces
 	var nameTokens []token.Token
 
-	// Collect all consecutive IDENT and INT tokens
+	// Collect all consecutive IDENT, INT, DASH, and WHITESPACE tokens
 	for {
 		tok := l.NextToken()
 
-		if tok.Type == token.IDENT || tok.Type == token.INT || tok.Type == token.DASH {
+		if tok.Type == token.IDENT || tok.Type == token.INT || tok.Type == token.DASH || tok.Type == token.WHITESPACE {
 			nameTokens = append(nameTokens, tok)
 		} else if tok.Type == token.LBRACE {
 			// Found braces - all the tokens we collected are part of the name
@@ -267,7 +277,7 @@ func (p *CooklangParser) parseIngredient(l *lexer.Lexer) (Component, error) {
 			}
 			component.Quantity = quantity
 			component.Unit = unit
-			component.Name = strings.Join(nameParts, " ")
+			component.Name = strings.Join(nameParts, "")
 			return component, nil
 		} else {
 			// Hit something that's not IDENT or LBRACE
@@ -277,13 +287,27 @@ func (p *CooklangParser) parseIngredient(l *lexer.Lexer) (Component, error) {
 		}
 	}
 
-	// No braces found - for ingredients without braces, only use the first token
+	// No braces found - for ingredients without braces, collect consecutive alphanumeric tokens
 	if len(nameTokens) > 0 {
-		component.Name = nameTokens[0].Literal // Only use the first token for ingredients without braces
-		component.Quantity = "some"            // Default quantity for ingredients
+		// For ingredients without braces, join consecutive IDENT/INT tokens
+		var nameParts []string
+		var tokensUsed int
 
-		// Put back any additional tokens that were collected (in reverse order)
-		for i := len(nameTokens) - 1; i > 0; i-- {
+		for i, tok := range nameTokens {
+			if tok.Type == token.IDENT || tok.Type == token.INT {
+				nameParts = append(nameParts, tok.Literal)
+				tokensUsed = i + 1
+			} else {
+				// Stop at first non-alphanumeric token
+				break
+			}
+		}
+
+		component.Name = strings.Join(nameParts, "")
+		component.Quantity = "some" // Default quantity for ingredients
+
+		// Put back any tokens we didn't use (in reverse order)
+		for i := len(nameTokens) - 1; i >= tokensUsed; i-- {
 			l.PutBackToken(nameTokens[i])
 		}
 	}
@@ -295,17 +319,21 @@ func (p *CooklangParser) parseIngredient(l *lexer.Lexer) (Component, error) {
 func (p *CooklangParser) parseCookware(l *lexer.Lexer) (Component, error) {
 	component := Component{Type: "cookware", Quantity: "1"}
 
-	// Collect IDENT and INT tokens and look for braces
-	var nameParts []string
+	// Collect IDENT, INT, DASH, and WHITESPACE tokens and look for braces
+	var nameTokens []token.Token
 
-	// Collect all consecutive IDENT and INT tokens
+	// Collect all consecutive IDENT, INT, DASH, and WHITESPACE tokens
 	for {
 		tok := l.NextToken()
 
-		if tok.Type == token.IDENT || tok.Type == token.INT || tok.Type == token.DASH {
-			nameParts = append(nameParts, tok.Literal)
+		if tok.Type == token.IDENT || tok.Type == token.INT || tok.Type == token.DASH || tok.Type == token.WHITESPACE {
+			nameTokens = append(nameTokens, tok)
 		} else if tok.Type == token.LBRACE {
-			// Found braces - all the IDENTs we collected are part of the name
+			// Found braces - all the tokens we collected are part of the name
+			var nameParts []string
+			for _, t := range nameTokens {
+				nameParts = append(nameParts, t.Literal)
+			}
 			quantity, _, err := p.parseQuantityAndUnit(l)
 			if err != nil {
 				return component, err
@@ -314,7 +342,7 @@ func (p *CooklangParser) parseCookware(l *lexer.Lexer) (Component, error) {
 				quantity = "1"
 			}
 			component.Quantity = quantity
-			component.Name = strings.Join(nameParts, " ")
+			component.Name = strings.Join(nameParts, "")
 			return component, nil
 		} else {
 			// Hit something that's not IDENT or LBRACE
@@ -325,13 +353,13 @@ func (p *CooklangParser) parseCookware(l *lexer.Lexer) (Component, error) {
 	}
 
 	// No braces found - use only the first IDENT for single-word cookware
-	if len(nameParts) > 0 {
-		component.Name = nameParts[0] // Only first word without braces
+	if len(nameTokens) > 0 {
+		component.Name = nameTokens[0].Literal // Only first word without braces
 
-		// Put back any extra IDENT tokens we consumed (in reverse order)
-		for i := len(nameParts) - 1; i >= 1; i-- {
-			// Reconstruct the IDENT tokens we need to put back
-			l.PutBackToken(token.Token{Type: token.IDENT, Literal: nameParts[i]})
+		// Put back any extra tokens we consumed (in reverse order)
+		for i := len(nameTokens) - 1; i >= 1; i-- {
+			// Put back the tokens we need to return
+			l.PutBackToken(nameTokens[i])
 		}
 	}
 
@@ -346,17 +374,30 @@ func (p *CooklangParser) parseTimer(l *lexer.Lexer) (Component, error) {
 	tok := l.NextToken()
 	if tok.Type == token.IDENT {
 		component.Name = tok.Literal
+		// Check for braces after the name
 		tok = l.NextToken()
-	}
-
-	// Check for quantity/unit in braces
-	if tok.Type == token.LBRACE {
+		if tok.Type == token.LBRACE {
+			quantity, unit, err := p.parseQuantityAndUnit(l)
+			if err != nil {
+				return component, err
+			}
+			component.Quantity = quantity
+			component.Unit = unit
+		} else {
+			// Put the token back if it's not a brace
+			l.PutBackToken(tok)
+		}
+	} else if tok.Type == token.LBRACE {
+		// Anonymous timer - parse quantity/unit directly
 		quantity, unit, err := p.parseQuantityAndUnit(l)
 		if err != nil {
 			return component, err
 		}
 		component.Quantity = quantity
 		component.Unit = unit
+	} else {
+		// Put the token back if it's neither IDENT nor LBRACE
+		l.PutBackToken(tok)
 	}
 
 	return component, nil
@@ -385,23 +426,27 @@ func (p *CooklangParser) parseQuantityAndUnit(l *lexer.Lexer) (string, string, e
 
 		if foundPercent {
 			// Everything after % is units
-			if tok.Type == token.IDENT {
+			if tok.Type == token.IDENT || tok.Type == token.WHITESPACE {
 				if unit == "" {
 					unit = tok.Literal
 				} else {
-					unit += " " + tok.Literal
+					unit += tok.Literal
 				}
 			}
 		} else {
 			// Before % is quantity
-			if tok.Type == token.INT || tok.Type == token.IDENT || tok.Type == token.DASH || tok.Type == token.DIVIDE || tok.Type == token.PERIOD {
+			if tok.Type == token.INT || tok.Type == token.IDENT || tok.Type == token.DASH || tok.Type == token.DIVIDE || tok.Type == token.PERIOD || tok.Type == token.WHITESPACE {
 				quantityParts = append(quantityParts, tok.Literal)
 			}
 		}
 	}
 
-	// Join quantity parts
+	// Join quantity parts preserving original spacing
 	quantity := strings.Join(quantityParts, "")
+
+	// Trim whitespace from quantity, but preserve internal spaces
+	quantity = strings.TrimSpace(quantity)
+
 	if quantity == "" {
 		quantity = "some"
 	} else {
@@ -409,6 +454,10 @@ func (p *CooklangParser) parseQuantityAndUnit(l *lexer.Lexer) (string, string, e
 		quantity = p.evaluateFraction(quantity)
 	}
 
+	// Trim whitespace from units
+	unit = strings.TrimSpace(unit)
+
+	// Don't set default units - spec expects empty string when no units provided
 	return quantity, unit, nil
 }
 
@@ -464,12 +513,12 @@ func (p *CooklangParser) compressTextElements(recipe *Recipe) {
 
 		for _, component := range step.Components {
 			if component.Type == "text" {
-				// Accumulate text components
+				// Accumulate text components without adding spaces
 				textBuffer = append(textBuffer, component.Value)
 			} else {
 				// Non-text component: flush any accumulated text first
 				if len(textBuffer) > 0 {
-					compressedText := strings.Join(textBuffer, " ")
+					compressedText := strings.Join(textBuffer, "")
 					compressed = append(compressed, Component{
 						Type:  "text",
 						Value: compressedText,
@@ -483,7 +532,7 @@ func (p *CooklangParser) compressTextElements(recipe *Recipe) {
 
 		// Flush any remaining text at the end
 		if len(textBuffer) > 0 {
-			compressedText := strings.Join(textBuffer, " ")
+			compressedText := strings.Join(textBuffer, "")
 			compressed = append(compressed, Component{
 				Type:  "text",
 				Value: compressedText,

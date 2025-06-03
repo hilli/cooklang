@@ -2,6 +2,7 @@ package lexer
 
 import (
 	"unicode"
+	"unicode/utf8"
 
 	"github.com/hilli/cooklang/token"
 )
@@ -10,7 +11,7 @@ type Lexer struct {
 	input         string
 	position      int
 	readPosition  int
-	ch            byte          // Only supports ASCII
+	ch            rune          // Now supports Unicode
 	tokenBuffer   []token.Token // Buffer for putback tokens
 	documentStart bool          // True if we're still at the very beginning of the document
 }
@@ -25,10 +26,15 @@ func (l *Lexer) readChar() {
 	if l.readPosition >= len(l.input) {
 		l.ch = 0
 	} else {
-		l.ch = l.input[l.readPosition]
+		r, size := utf8.DecodeRuneInString(l.input[l.readPosition:])
+		if r == utf8.RuneError {
+			l.ch = 0
+		} else {
+			l.ch = r
+		}
+		l.position = l.readPosition
+		l.readPosition += size
 	}
-	l.position = l.readPosition
-	l.readPosition += 1
 }
 
 func (l *Lexer) NextToken() token.Token {
@@ -41,10 +47,13 @@ func (l *Lexer) NextToken() token.Token {
 
 	var tok token.Token
 
-	l.skipWhitespace()
+	// Handle whitespace as tokens instead of skipping
+	if l.ch == ' ' || l.ch == '\t' || l.ch == '\r' {
+		return l.readWhitespace()
+	}
 
 	// If we encounter any non-whitespace content, we're no longer at document start
-	if l.documentStart && l.ch != 0 && l.ch != '\n' && !(l.ch == '-' && l.peekChar() == '-' && l.peekCharAt(2) == '-' && l.position == 0) {
+	if l.documentStart && l.ch != 0 && l.ch != '\n' && !(l.ch == '-' && l.peekChar() == '-' && l.peekCharAt(1) == '-' && l.position == 0) {
 		l.documentStart = false
 	}
 
@@ -57,7 +66,7 @@ func (l *Lexer) NextToken() token.Token {
 		tok = newToken(token.SECTION, l.ch)
 	case '-':
 		if l.peekChar() == '-' {
-			if l.peekCharAt(2) == '-' {
+			if l.peekCharAt(1) == '-' {
 				// Check if we're at the very beginning of the document
 				if l.documentStart && l.position == 0 {
 					return l.readYAMLFrontmatter()
@@ -90,8 +99,8 @@ func (l *Lexer) NextToken() token.Token {
 	case '}':
 		tok = newToken(token.RBRACE, l.ch)
 	case '@':
-		// Only treat as INGREDIENT if immediately followed by a letter, underscore, or digit
-		if isLetter(l.peekChar()) || l.peekChar() == '_' || isDigit(l.peekChar()) {
+		// Only treat as INGREDIENT if immediately followed by an identifier character or underscore
+		if isIdentifierChar(l.peekChar()) || l.peekChar() == '_' {
 			tok = newToken(token.INGREDIENT, l.ch)
 		} else {
 			// Treat as regular text if followed by whitespace or other characters
@@ -117,7 +126,7 @@ func (l *Lexer) NextToken() token.Token {
 		tok.Literal = ""
 		tok.Type = token.EOF
 	default:
-		if isLetter(l.ch) {
+		if isIdentifierChar(l.ch) {
 			tok.Literal = l.readIdentifyer()
 			tok.Type = token.LookupIdent(tok.Literal)
 			return tok
@@ -134,16 +143,28 @@ func (l *Lexer) NextToken() token.Token {
 	return tok
 }
 
-func newToken(tokenType token.TokenType, ch byte) token.Token {
+func newToken(tokenType token.TokenType, ch rune) token.Token {
 	return token.Token{Type: tokenType, Literal: string(ch)}
 }
 
-func (l *Lexer) peekChar() byte {
+func (l *Lexer) peekChar() rune {
 	if l.readPosition >= len(l.input) {
 		return 0
 	} else {
-		return l.input[l.readPosition]
+		r, _ := utf8.DecodeRuneInString(l.input[l.readPosition:])
+		if r == utf8.RuneError {
+			return 0
+		}
+		return r
 	}
+}
+
+func (l *Lexer) readWhitespace() token.Token {
+	position := l.position
+	for l.ch == ' ' || l.ch == '\t' || l.ch == '\r' {
+		l.readChar()
+	}
+	return token.Token{Type: token.WHITESPACE, Literal: l.input[position:l.position]}
 }
 
 func (l *Lexer) skipWhitespace() {
@@ -154,18 +175,24 @@ func (l *Lexer) skipWhitespace() {
 
 func (l *Lexer) readIdentifyer() string {
 	position := l.position
-	for isLetter(l.ch) {
+	for isIdentifierChar(l.ch) {
 		l.readChar()
 	}
 	return l.input[position:l.position]
 }
 
-func isLetter(ch byte) bool {
-	return unicode.IsLetter(rune(ch))
+func isLetter(ch rune) bool {
+	return unicode.IsLetter(ch)
 }
 
-func isDigit(ch byte) bool {
-	return unicode.IsDigit(rune(ch))
+func isDigit(ch rune) bool {
+	return unicode.IsDigit(ch)
+}
+
+// isIdentifierChar checks if a character can be part of an identifier
+// This includes letters, digits, and emojis/symbols but excludes punctuation
+func isIdentifierChar(ch rune) bool {
+	return unicode.IsLetter(ch) || unicode.IsDigit(ch) || unicode.IsSymbol(ch)
 }
 
 func (l *Lexer) readNumber() string {
@@ -176,13 +203,26 @@ func (l *Lexer) readNumber() string {
 	return l.input[position:l.position]
 }
 
-func (l *Lexer) peekCharAt(offset int) byte {
-	pos := l.readPosition + offset - 1
+func (l *Lexer) peekCharAt(offset int) rune {
+	// This is more complex with UTF-8, so we'll decode from current position
+	pos := l.readPosition
+	for i := 0; i < offset && pos < len(l.input); i++ {
+		_, size := utf8.DecodeRuneInString(l.input[pos:])
+		if size == 0 {
+			return 0
+		}
+		pos += size
+	}
+
 	if pos >= len(l.input) {
 		return 0
-	} else {
-		return l.input[pos]
 	}
+
+	r, _ := utf8.DecodeRuneInString(l.input[pos:])
+	if r == utf8.RuneError {
+		return 0
+	}
+	return r
 }
 
 func (l *Lexer) readYAMLFrontmatter() token.Token {
@@ -217,7 +257,7 @@ func (l *Lexer) readYAMLFrontmatter() token.Token {
 		}
 
 		// Check for closing ---
-		if l.ch == '-' && l.peekChar() == '-' && l.peekCharAt(2) == '-' {
+		if l.ch == '-' && l.peekChar() == '-' && l.peekCharAt(1) == '-' {
 			// Make sure it's at the start of a line
 			if l.position == 0 || l.input[l.position-1] == '\n' {
 				break

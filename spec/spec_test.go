@@ -3,6 +3,7 @@ package spec_test
 // Are we parsing the spec tests of Cooklang
 
 import (
+	"reflect"
 	"testing"
 
 	"github.com/hilli/cooklang/parser"
@@ -30,19 +31,18 @@ func Test_Spec(t *testing.T) {
 			}
 
 			for is, specstep := range spec.Result.Steps {
-				_ = is
-				t.Logf("%+v", specstep[0])
-				// if specstep != recipe.Steps[is] {
-				// 	//
-				// }
-			}
-
-			for i, step := range recipe.Steps {
-				t.Log("Step", i+1)
-				for _, comp := range step.Components {
-					t.Logf("\t%+v", comp)
+				recipeComponent := recipe.Steps[is].Components
+				if !reflect.DeepEqual(recipeComponent, specstep) {
+					t.Errorf("Error: %s\nWant: %#v\nGot : %#v", err, specstep, recipeComponent)
 				}
 			}
+
+			// for i, step := range recipe.Steps {
+			// 	t.Log("Step", i+1)
+			// 	for _, comp := range step.Components {
+			// 		t.Logf("\t%+v", comp)
+			// 	}
+			// }
 		})
 	}
 }

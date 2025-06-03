@@ -24,7 +24,7 @@ tests:
           - type: ingredient
             name: chilli
             quantity: 5
-            unit: g
+            units: g
       metadata:
         "title": "Hot stuff"
 `
