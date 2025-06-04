@@ -4,10 +4,20 @@ tasks:
   test:
     desc: Run all Go tests (including spec)
     cmds:
-      - go test ./... -v
+      - go test ./...
 
   test-spec:
     desc: Run only the spec tests
     cmds:
       - go test -v ./spec -run Test_Spec
 
+  fetch-latest-cooklang-spec:
+    desc: Fetch the latest Cooklang spec from the official repository
+    cmds:
+      - curl -o spec/canonical.yaml https://raw.githubusercontent.com/cooklang/spec/refs/heads/main/tests/canonical.yaml
+
+  lint:
+    desc: Run the linter on the Go code
+    cmds:
+      - go vet ./...
+      - golangci-lint run

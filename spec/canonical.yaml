@@ -1,4 +1,3 @@
-# From https://github.com/cooklang/spec/blob/main/tests/canonical.yaml
 version: 7
 tests:
   testBasicDirection:
