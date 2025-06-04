@@ -27,7 +27,7 @@ func TestNextToken(t *testing.T) {
 		{token.RPAREN, ")"},
 		{token.COMMA, ","},
 		{token.DIVIDE, "/"},
-		{token.INT, "5"},
+		{token.IDENT, "5"},
 		{token.SEMICOLON, ";"},
 		{token.EOF, ""},
 	}
