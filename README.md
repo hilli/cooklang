@@ -1,17 +1,18 @@
-# go-cooklang
+[![CI - Build and Test](https://github.com/hilli/cooklang/actions/workflows/ci.yaml/badge.svg)](https://github.com/hilli/cooklang/actions/workflows/ci.yaml)
+
+# cooklang
+
 Go implementation of a cooklang parser.
 
 ## Cooklang specification
 
 See the [Cooklang specification](https://github.com/cooklang/spec/) for details.
 
-
-
 ## Developing
 
 ### Prerequisites
 
-This project uses a Taskfile for convenience. Install by running:
+This project uses a [Taskfile](https://taskfile.dev) for _convenience_. Install by running:
 
 ```shell
 go install tool
@@ -25,7 +26,7 @@ Run all tests with:
 task test
 ```
 
-Test the specification with:
+Test the specification specifically with:
 
 ```shell
 task test-spec
