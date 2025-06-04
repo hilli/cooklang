@@ -25,6 +25,7 @@ func New(input string) *Lexer {
 func (l *Lexer) readChar() {
 	if l.readPosition >= len(l.input) {
 		l.ch = 0
+		l.position = l.readPosition // Update position even at EOF
 	} else {
 		r, size := utf8.DecodeRuneInString(l.input[l.readPosition:])
 		if r == utf8.RuneError {
@@ -190,9 +191,30 @@ func isDigit(ch rune) bool {
 }
 
 // isIdentifierChar checks if a character can be part of an identifier
-// This includes letters, digits, and emojis/symbols but excludes punctuation
+// This includes letters, digits, emojis, and certain punctuation like hyphens
+// but excludes Cooklang special tokens like @, #, ~, =, etc.
 func isIdentifierChar(ch rune) bool {
-	return unicode.IsLetter(ch) || unicode.IsDigit(ch) || unicode.IsSymbol(ch)
+	if unicode.IsLetter(ch) || unicode.IsDigit(ch) {
+		return true
+	}
+	
+	// Allow emojis (which are symbols) but exclude specific Cooklang tokens
+	if unicode.IsSymbol(ch) {
+		// Exclude these specific symbols that are Cooklang tokens
+		switch ch {
+		case '@', '#', '~', '=':
+			return false
+		default:
+			return true
+		}
+	}
+	
+	// Allow hyphens for names like "7-inch nonstick frying pan"
+	if ch == '-' {
+		return true
+	}
+	
+	return false
 }
 
 func (l *Lexer) readNumber() string {
@@ -286,6 +308,11 @@ func (l *Lexer) readComment() token.Token {
 	l.readChar() // skip first -
 	l.readChar() // skip second -
 
+	// Skip any whitespace immediately after --
+	for l.ch == ' ' || l.ch == '\t' {
+		l.readChar()
+	}
+
 	// Read the comment content until end of line or EOF
 	start := l.position
 	for l.ch != '\n' && l.ch != '\r' && l.ch != 0 {
@@ -295,13 +322,8 @@ func (l *Lexer) readComment() token.Token {
 	// Extract the comment content
 	commentContent := l.input[start:l.position]
 
-	// If we stopped at a newline, consume it to prevent extra step creation
-	if l.ch == '\r' && l.peekChar() == '\n' {
-		l.readChar() // skip \r
-		l.readChar() // skip \n
-	} else if l.ch == '\n' {
-		l.readChar() // skip \n
-	}
+	// Don't consume the newline - let normal token processing handle it
+	// This allows newlines after comments to be converted to spaces properly
 
 	return token.Token{
 		Type:    token.COMMENT,

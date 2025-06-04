@@ -95,9 +95,20 @@ func TestWithoutYAMLFrontmatter(t *testing.T) {
 		t.Fatalf("expected Cook token, got type %q, literal %q", tok.Type, tok.Literal)
 	}
 
-	// Skip some tokens and check ingredients
-	tok = l.NextToken() // "the"
-	tok = l.NextToken() // "@"
+	// Skip whitespace and get "the"
+	tok = l.NextToken()
+	if tok.Type == token.WHITESPACE {
+		tok = l.NextToken()
+	}
+	if tok.Type != token.IDENT || tok.Literal != "the" {
+		t.Fatalf("expected 'the' token, got type %q, literal %q", tok.Type, tok.Literal)
+	}
+
+	// Skip whitespace and check for ingredient token "@"
+	tok = l.NextToken()
+	if tok.Type == token.WHITESPACE {
+		tok = l.NextToken()
+	}
 	if tok.Type != token.INGREDIENT {
 		t.Fatalf("expected INGREDIENT token, got %q", tok.Type)
 	}

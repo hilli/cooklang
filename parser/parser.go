@@ -109,9 +109,42 @@ func (p *CooklangParser) parseTokens(l *lexer.Lexer) (*Recipe, error) {
 						Value: " ",
 					})
 				}
-				// Put the next token back into the stream by continuing the loop with it
-				tok = nextTok
-				continue
+				// Process the next token immediately here
+				switch nextTok.Type {
+				case token.INGREDIENT:
+					ingredient, err := p.parseIngredient(l)
+					if err != nil {
+						return nil, fmt.Errorf("failed to parse ingredient: %w", err)
+					}
+					currentStep.Components = append(currentStep.Components, ingredient)
+				case token.COOKWARE:
+					cookware, err := p.parseCookware(l)
+					if err != nil {
+						return nil, fmt.Errorf("failed to parse cookware: %w", err)
+					}
+					currentStep.Components = append(currentStep.Components, cookware)
+				case token.COOKTIME:
+					timer, err := p.parseTimer(l)
+					if err != nil {
+						return nil, fmt.Errorf("failed to parse timer: %w", err)
+					}
+					currentStep.Components = append(currentStep.Components, timer)
+				case token.WHITESPACE:
+					currentStep.Components = append(currentStep.Components, Component{
+						Type:  "text",
+						Value: nextTok.Literal,
+					})
+				case token.IDENT:
+					currentStep.Components = append(currentStep.Components, Component{
+						Type:  "text",
+						Value: nextTok.Literal,
+					})
+				default:
+					currentStep.Components = append(currentStep.Components, Component{
+						Type:  "text",
+						Value: nextTok.Literal,
+					})
+				}
 			}
 
 		case token.COMMENT:
