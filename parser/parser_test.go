@@ -204,11 +204,11 @@ func TestTextCompression(t *testing.T) {
 	step := recipe.Steps[0]
 
 	// Expected components after compression:
-	// 1. "Add" (text)
+	// 1. "Add " (text)
 	// 2. salt ingredient
-	// 3. "and" (text)
+	// 3. " and " (text)
 	// 4. pepper ingredient
-	// 5. "to taste ." (text)
+	// 5. " to taste." (text)
 
 	expectedComponents := 5
 	if len(step.Components) != expectedComponents {
@@ -226,7 +226,7 @@ func TestTextCompression(t *testing.T) {
 		}
 	}
 
-	expectedTexts := []string{"Add", "and", "to taste ."}
+	expectedTexts := []string{"Add ", " and ", " to taste."}
 	if len(textComponents) != len(expectedTexts) {
 		t.Errorf("Expected %d text components, got %d", len(expectedTexts), len(textComponents))
 	}
@@ -266,7 +266,7 @@ func TestTextCompressionMultipleConsecutive(t *testing.T) {
 		t.Errorf("Expected text component, got %s", step.Components[0].Type)
 	}
 
-	expectedText := "Boil water for cooking pasta ."
+	expectedText := "Boil water for cooking pasta."
 	if step.Components[0].Value != expectedText {
 		t.Errorf("Expected compressed text %q, got %q", expectedText, step.Components[0].Value)
 	}
