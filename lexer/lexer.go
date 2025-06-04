@@ -168,12 +168,6 @@ func (l *Lexer) readWhitespace() token.Token {
 	return token.Token{Type: token.WHITESPACE, Literal: l.input[position:l.position]}
 }
 
-func (l *Lexer) skipWhitespace() {
-	for l.ch == ' ' || l.ch == '\t' || l.ch == '\r' {
-		l.readChar()
-	}
-}
-
 func (l *Lexer) readIdentifyer() string {
 	position := l.position
 	for isIdentifierChar(l.ch) {
@@ -197,7 +191,7 @@ func isIdentifierChar(ch rune) bool {
 	if unicode.IsLetter(ch) || unicode.IsDigit(ch) {
 		return true
 	}
-	
+
 	// Allow emojis (which are symbols) but exclude specific Cooklang tokens
 	if unicode.IsSymbol(ch) {
 		// Exclude these specific symbols that are Cooklang tokens
@@ -208,12 +202,12 @@ func isIdentifierChar(ch rune) bool {
 			return true
 		}
 	}
-	
+
 	// Allow hyphens for names like "7-inch nonstick frying pan"
 	if ch == '-' {
 		return true
 	}
-	
+
 	return false
 }
 

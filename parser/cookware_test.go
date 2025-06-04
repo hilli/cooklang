@@ -1,7 +1,6 @@
 package parser
 
 import (
-	"fmt"
 	"testing"
 
 	"github.com/hilli/cooklang/lexer"
@@ -12,10 +11,10 @@ func TestCookwareTokens(t *testing.T) {
 	input := "#large skillet{1}"
 	l := lexer.New(input)
 
-	fmt.Printf("Tokenizing: %s\n", input)
+	t.Logf("Tokenizing: %s\n", input)
 	for {
 		tok := l.NextToken()
-		fmt.Printf("Token: Type=%s, Literal='%s'\n", tok.Type, tok.Literal)
+		t.Logf("Token: Type=%s, Literal='%s'\n", tok.Type, tok.Literal)
 		if tok.Type == token.EOF {
 			break
 		}
@@ -29,11 +28,11 @@ func TestCookwareParsing(t *testing.T) {
 		t.Fatalf("Error parsing recipe: %v", err)
 	}
 
-	fmt.Printf("Recipe: %+v\n", recipe)
+	t.Logf("Recipe: %+v\n", recipe)
 	for i, step := range recipe.Steps {
-		fmt.Printf("Step %d:\n", i+1)
+		t.Logf("Step %d:\n", i+1)
 		for j, comp := range step.Components {
-			fmt.Printf("  Component %d: Type=%s, Name='%s', Value='%s', Quantity='%s'\n",
+			t.Logf("  Component %d: Type=%s, Name='%s', Value='%s', Quantity='%s'\n",
 				j, comp.Type, comp.Name, comp.Value, comp.Quantity)
 		}
 	}
