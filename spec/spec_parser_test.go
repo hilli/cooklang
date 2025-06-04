@@ -39,15 +39,15 @@ func Test_SpecParser(t *testing.T) {
 	// t.Log(res.Tests)
 	tests := res.Tests
 	for _, test := range tests {
-		t.Logf("Source: %+v", test.Source)
-		t.Logf("Result: %+v", test.Result)
-		t.Logf("Steps: %+v", test.Result.Steps)
+		// t.Logf("Source: %+v", test.Source)
+		// t.Logf("Result: %+v", test.Result)
+		// t.Logf("Steps: %+v", test.Result.Steps)
 		if test.Result.Metadata["title"] != "Hot stuff" {
 			t.Error("Error passing metadata:", err)
 		}
 		for _, steps := range test.Result.Steps {
 			for i, step := range steps {
-				t.Log("Component", i, step.Type)
+				// t.Log("Component", i, step.Type)
 				if i == 0 { // The instructions
 					if step.Type != "text" {
 						t.Error("Expected 'text' type", err)
@@ -73,6 +73,5 @@ func Test_SpecParser(t *testing.T) {
 				}
 			}
 		}
-		// t.Errorf("arg")
 	}
 }
