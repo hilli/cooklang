@@ -26,6 +26,10 @@ func Test_Spec(t *testing.T) {
 			}
 
 			p := parser.New()
+			// Enable extended mode for extended.yaml spec file
+			if specFile == "extended.yaml" {
+				p.ExtendedMode = true
+			}
 			for testName, spec := range specification.Tests {
 				t.Run(testName, func(t *testing.T) {
 					source := spec.Source

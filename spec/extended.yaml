@@ -10,18 +10,20 @@ tests:
           - type: ingredient
             name: "milk"
             quantity: 1
-            unit: l
-            value: cold
+            units: "l"
+            value: "cold"
       metadata: {}
 
   testCookwareCanHaveInstructions:
     source: |
-      #pan{1}(for frying)
+      #pan{}(for frying)
     result:
       steps:
         -
           - type: cookware
             name: "pan"
+            quantity: 1
+            units: ""
             value: "for frying"
       metadata: {}
 
@@ -33,8 +35,8 @@ tests:
         -
           - type: timer
             name: "roast time"
-            value: 4
-            unit: hours
+            quantity: 4
+            units: "hours"
       metadata: {}
 
   testCommentsIsAType:
