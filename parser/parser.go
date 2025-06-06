@@ -419,7 +419,7 @@ func (p *CooklangParser) parseCookware(l *lexer.Lexer) (Component, error) {
 			if quantity == "some" {
 				quantity = "1"
 			}
-			component.Quantity = quantity  // Always set quantity for cookware
+			component.Quantity = quantity // Always set quantity for cookware
 			component.Name = strings.Join(nameParts, "")
 
 			// Check for instruction in parentheses
