@@ -495,7 +495,8 @@ func (p *CooklangParser) parseTimer(l *lexer.Lexer) (Component, error) {
 
 			for {
 				nextTok := l.NextToken()
-				if nextTok.Type == token.LBRACE {
+				switch nextTok.Type {
+				case token.LBRACE:
 					// Found braces - parse quantity/unit
 					component.Name = strings.Join(nameTokens, "")
 					quantity, unit, err := p.parseQuantityAndUnit(l)
@@ -506,17 +507,16 @@ func (p *CooklangParser) parseTimer(l *lexer.Lexer) (Component, error) {
 					component.Quantity = quantity
 					component.Unit = unit
 					return component, nil
-				} else if nextTok.Type == token.WHITESPACE {
+				case token.WHITESPACE:
 					// Add whitespace to name parts
 					nameTokens = append(nameTokens, nextTok.Literal)
-				} else if nextTok.Type == token.IDENT {
+				case token.IDENT:
 					// Additional word in timer name
 					nameTokens = append(nameTokens, nextTok.Literal)
-				} else {
+				default:
 					// Hit something else - put it back and stop
 					l.PutBackToken(nextTok)
 					component.Name = strings.TrimSpace(strings.Join(nameTokens, ""))
-					break
 				}
 			}
 		} else {
