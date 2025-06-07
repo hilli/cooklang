@@ -487,7 +487,8 @@ func (p *CooklangParser) parseTimer(l *lexer.Lexer) (Component, error) {
 
 	// Check if next token is an identifier (timer name) or brace (anonymous timer)
 	tok := l.NextToken()
-	if tok.Type == token.IDENT {
+	switch tok.Type {
+	case token.IDENT:
 		if p.ExtendedMode {
 			// Extended mode: allow multi-word timer names
 			var nameTokens []string
@@ -539,7 +540,7 @@ func (p *CooklangParser) parseTimer(l *lexer.Lexer) (Component, error) {
 				l.PutBackToken(nextTok)
 			}
 		}
-	} else if tok.Type == token.LBRACE {
+	case token.LBRACE:
 		// Anonymous timer - parse quantity/unit directly
 		quantity, unit, err := p.parseQuantityAndUnit(l)
 		if err != nil {
@@ -548,11 +549,10 @@ func (p *CooklangParser) parseTimer(l *lexer.Lexer) (Component, error) {
 		// Use Quantity and Unit fields in both modes
 		component.Quantity = quantity
 		component.Unit = unit
-	} else {
+	default:
 		// Put the token back if it's neither IDENT nor LBRACE
 		l.PutBackToken(tok)
 	}
-
 	return component, nil
 }
 
