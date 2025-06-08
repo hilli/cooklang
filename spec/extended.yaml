@@ -1,0 +1,50 @@
+# Trying to support a few common extended syntax features that are not in the base spec.
+version: 1
+tests:
+  testIngredientInstructions:
+    source: |
+      @milk{1%l}(cold)
+    result:
+      steps:
+        -
+          - type: ingredient
+            name: "milk"
+            quantity: 1
+            units: "l"
+            value: "cold"
+      metadata: {}
+
+  testCookwareCanHaveInstructions:
+    source: |
+      #pan{}(for frying)
+    result:
+      steps:
+        -
+          - type: cookware
+            name: "pan"
+            quantity: 1
+            units: ""
+            value: "for frying"
+      metadata: {}
+
+  testTimersCanHaveLongNames:
+    source: |
+      ~roast time{4%hours}
+    result:
+      steps:
+        -
+          - type: timer
+            name: "roast time"
+            quantity: 4
+            units: "hours"
+      metadata: {}
+
+  testCommentsIsAType:
+    source: |
+      -- This is a comment
+    result:
+      steps:
+        -
+          - type: comment
+            value: "This is a comment"
+      metadata: {}

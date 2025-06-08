@@ -169,7 +169,7 @@ Add @pasta{400%grams} to boiling @water{}.`
 				if component.Name == "pasta" {
 					foundPasta = true
 					if component.Quantity != "400" || component.Unit != "grams" {
-						t.Errorf("Pasta ingredient: got quantity=%q units=%q, want quantity=400 units=grams", component.Quantity, component.Unit)
+						t.Errorf("Pasta ingredient: got quantity=%q unit=%q, want quantity=400 unit=grams", component.Quantity, component.Unit)
 					}
 				}
 				if component.Name == "water" {

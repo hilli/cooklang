@@ -35,6 +35,7 @@ type Component struct {
 // CooklangParser handles parsing of cooklang recipes
 type CooklangParser struct {
 	CooklangSpecVersion int
+	ExtendedMode        bool // Enable extended spec features
 }
 
 // New creates a new CooklangParser
@@ -148,8 +149,14 @@ func (p *CooklangParser) parseTokens(l *lexer.Lexer) (*Recipe, error) {
 			}
 
 		case token.COMMENT:
-			// Comments are ignored completely
-			continue
+			// Only create comment components in extended mode
+			if p.ExtendedMode {
+				currentStep.Components = append(currentStep.Components, Component{
+					Type:  "comment",
+					Value: tok.Literal,
+				})
+			}
+			// In canonical mode, ignore comments
 
 		case token.INGREDIENT:
 			// Parse ingredient
@@ -309,8 +316,28 @@ func (p *CooklangParser) parseIngredient(l *lexer.Lexer) (Component, error) {
 				return component, err
 			}
 			component.Quantity = quantity
+			// Use the parsed unit in both canonical and extended modes
 			component.Unit = unit
 			component.Name = strings.Join(nameParts, "")
+
+			// Check for instruction in parentheses
+			tok := l.NextToken()
+			if tok.Type == token.LPAREN {
+				// Parse instruction until closing parenthesis
+				var instructionParts []string
+				for {
+					tok = l.NextToken()
+					if tok.Type == token.RPAREN || tok.Type == token.EOF {
+						break
+					}
+					instructionParts = append(instructionParts, tok.Literal)
+				}
+				component.Value = strings.Join(instructionParts, "")
+			} else {
+				// Put back the token we peeked at
+				l.PutBackToken(tok)
+			}
+
 			return component, nil
 		} else {
 			// Hit something that's not IDENT or LBRACE
@@ -343,6 +370,24 @@ func (p *CooklangParser) parseIngredient(l *lexer.Lexer) (Component, error) {
 		for i := len(nameTokens) - 1; i >= tokensUsed; i-- {
 			l.PutBackToken(nameTokens[i])
 		}
+
+		// Check for instruction in parentheses
+		tok := l.NextToken()
+		if tok.Type == token.LPAREN {
+			// Parse instruction until closing parenthesis
+			var instructionParts []string
+			for {
+				tok = l.NextToken()
+				if tok.Type == token.RPAREN || tok.Type == token.EOF {
+					break
+				}
+				instructionParts = append(instructionParts, tok.Literal)
+			}
+			component.Value = strings.Join(instructionParts, "")
+		} else {
+			// Put back the token we peeked at
+			l.PutBackToken(tok)
+		}
 	}
 
 	return component, nil
@@ -350,7 +395,7 @@ func (p *CooklangParser) parseIngredient(l *lexer.Lexer) (Component, error) {
 
 // parseCookware parses a cookware token
 func (p *CooklangParser) parseCookware(l *lexer.Lexer) (Component, error) {
-	component := Component{Type: "cookware", Quantity: "1"}
+	component := Component{Type: "cookware", Quantity: "1"} // Always default to "1"
 
 	// Collect IDENT, INT, DASH, and WHITESPACE tokens and look for braces
 	var nameTokens []token.Token
@@ -374,8 +419,27 @@ func (p *CooklangParser) parseCookware(l *lexer.Lexer) (Component, error) {
 			if quantity == "some" {
 				quantity = "1"
 			}
-			component.Quantity = quantity
+			component.Quantity = quantity // Always set quantity for cookware
 			component.Name = strings.Join(nameParts, "")
+
+			// Check for instruction in parentheses
+			tok := l.NextToken()
+			if tok.Type == token.LPAREN {
+				// Parse instruction until closing parenthesis
+				var instructionParts []string
+				for {
+					tok = l.NextToken()
+					if tok.Type == token.RPAREN || tok.Type == token.EOF {
+						break
+					}
+					instructionParts = append(instructionParts, tok.Literal)
+				}
+				component.Value = strings.Join(instructionParts, "")
+			} else {
+				// Put back the token we peeked at
+				l.PutBackToken(tok)
+			}
+
 			return component, nil
 		} else {
 			// Hit something that's not IDENT or LBRACE
@@ -394,6 +458,24 @@ func (p *CooklangParser) parseCookware(l *lexer.Lexer) (Component, error) {
 			// Put back the tokens we need to return
 			l.PutBackToken(nameTokens[i])
 		}
+
+		// Check for instruction in parentheses
+		tok := l.NextToken()
+		if tok.Type == token.LPAREN {
+			// Parse instruction until closing parenthesis
+			var instructionParts []string
+			for {
+				tok = l.NextToken()
+				if tok.Type == token.RPAREN || tok.Type == token.EOF {
+					break
+				}
+				instructionParts = append(instructionParts, tok.Literal)
+			}
+			component.Value = strings.Join(instructionParts, "")
+		} else {
+			// Put back the token we peeked at
+			l.PutBackToken(tok)
+		}
 	}
 
 	return component, nil
@@ -405,34 +487,72 @@ func (p *CooklangParser) parseTimer(l *lexer.Lexer) (Component, error) {
 
 	// Check if next token is an identifier (timer name) or brace (anonymous timer)
 	tok := l.NextToken()
-	if tok.Type == token.IDENT {
-		component.Name = tok.Literal
-		// Check for braces after the name
-		tok = l.NextToken()
-		if tok.Type == token.LBRACE {
-			quantity, unit, err := p.parseQuantityAndUnit(l)
-			if err != nil {
-				return component, err
+	switch tok.Type {
+	case token.IDENT:
+		if p.ExtendedMode {
+			// Extended mode: allow multi-word timer names
+			var nameTokens []string
+			nameTokens = append(nameTokens, tok.Literal)
+
+			for {
+				nextTok := l.NextToken()
+				switch nextTok.Type {
+				case token.LBRACE:
+					// Found braces - parse quantity/unit
+					component.Name = strings.Join(nameTokens, "")
+					quantity, unit, err := p.parseQuantityAndUnit(l)
+					if err != nil {
+						return component, err
+					}
+					// Use Quantity and Unit fields in both modes
+					component.Quantity = quantity
+					component.Unit = unit
+					return component, nil
+				case token.WHITESPACE:
+					// Add whitespace to name parts
+					nameTokens = append(nameTokens, nextTok.Literal)
+				case token.IDENT:
+					// Additional word in timer name
+					nameTokens = append(nameTokens, nextTok.Literal)
+				default:
+					// Hit something else - put it back and stop
+					l.PutBackToken(nextTok)
+					component.Name = strings.TrimSpace(strings.Join(nameTokens, ""))
+				}
 			}
-			component.Quantity = quantity
-			component.Unit = unit
 		} else {
-			// Put the token back if it's not a brace
-			l.PutBackToken(tok)
+			// Canonical mode: single word timer names only
+			component.Name = tok.Literal
+
+			// Check if next token is braces
+			nextTok := l.NextToken()
+			if nextTok.Type == token.LBRACE {
+				// Parse quantity/unit
+				quantity, unit, err := p.parseQuantityAndUnit(l)
+				if err != nil {
+					return component, err
+				}
+				// In canonical mode, use Quantity and Unit fields
+				component.Quantity = quantity
+				component.Unit = unit
+			} else {
+				// Put the token back
+				l.PutBackToken(nextTok)
+			}
 		}
-	} else if tok.Type == token.LBRACE {
+	case token.LBRACE:
 		// Anonymous timer - parse quantity/unit directly
 		quantity, unit, err := p.parseQuantityAndUnit(l)
 		if err != nil {
 			return component, err
 		}
+		// Use Quantity and Unit fields in both modes
 		component.Quantity = quantity
 		component.Unit = unit
-	} else {
+	default:
 		// Put the token back if it's neither IDENT nor LBRACE
 		l.PutBackToken(tok)
 	}
-
 	return component, nil
 }
 
@@ -458,7 +578,7 @@ func (p *CooklangParser) parseQuantityAndUnit(l *lexer.Lexer) (string, string, e
 		}
 
 		if foundPercent {
-			// Everything after % is units
+			// Everything after % is unit
 			if tok.Type == token.IDENT || tok.Type == token.WHITESPACE {
 				if unit == "" {
 					unit = tok.Literal

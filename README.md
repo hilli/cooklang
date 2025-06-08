@@ -10,7 +10,7 @@ See the [Cooklang specification](https://github.com/cooklang/spec/) for details.
 
 ## Developing
 
-### Prerequisites
+### Prerequisites (Well, not really)
 
 This project uses a [Taskfile](https://taskfile.dev) for _convenience_. Install by running:
 
@@ -30,4 +30,10 @@ Test the specification specifically with:
 
 ```shell
 task test-spec
+```
+
+Lint the stuff:
+
+```shell
+task lint
 ```
