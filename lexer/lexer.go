@@ -54,6 +54,7 @@ func (l *Lexer) NextToken() token.Token {
 	}
 
 	// If we encounter any non-whitespace content, we're no longer at document start
+	// nolint: staticcheck
 	if l.documentStart && !(l.ch == 0 || l.ch == '\n' || (l.ch == '-' && l.peekChar() == '-' && l.peekCharAt(1) == '-' && l.position == 0)) {
 		l.documentStart = false
 	}
