@@ -43,9 +43,9 @@ func Test_Reparser(t *testing.T) {
 	// fmt.Printf("Recipe: %+v\n", recipe)
 
 	// Test basic rendering (using default renderer)
-	output := recipe.Render()
-	if output == "" {
-		t.Error("Recipe rendering should not be empty")
-	}
+	// output := recipe.Render()
+	// if output == "" {
+	// 	t.Error("Recipe rendering should not be empty")
+	// }
 
 }

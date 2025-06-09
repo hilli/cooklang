@@ -79,9 +79,6 @@ func (c Cookware) Render() string {
 	}
 	return fmt.Sprintf("#%s{}", c.Name)
 }
-func (Step) Render() string { return "" }
-
-// func (Step)
 
 type Ingredient struct {
 	Name           string        `json:"name,omitempty"`
@@ -194,8 +191,6 @@ func ToCooklangRecipe(pRecipe *parser.Recipe) *Recipe {
 			recipe.Tags[i] = strings.TrimSpace(recipe.Tags[i])
 		}
 	}
-
-	fmt.Printf("Converting parsed recipe: %s\n", pRecipe.Metadata["title"])
 
 	var prevStep *Step
 
