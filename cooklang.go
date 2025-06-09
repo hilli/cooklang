@@ -38,6 +38,134 @@ type CooklangRecipe interface {
 
 type Metadata map[string]string
 
+// UnitSystem defines supported unit systems for easy conversion
+type UnitSystem string
+
+const (
+	UnitSystemMetric   UnitSystem = "metric"
+	UnitSystemImperial UnitSystem = "imperial"
+	UnitSystemUS       UnitSystem = "us"
+)
+
+// canonicalUnits maps quantity types to preferred units for each system
+var canonicalUnits = map[UnitSystem]map[string]string{
+	UnitSystemMetric: {
+		"mass":        "g",
+		"volume":      "ml",
+		"length":      "cm",
+		"temperature": "c",
+	},
+	UnitSystemImperial: {
+		"mass":        "oz",
+		"volume":      "ml", // Will be converted to appropriate units via mappings
+		"length":      "in",
+		"temperature": "f",
+	},
+	UnitSystemUS: {
+		"mass":        "oz",
+		"volume":      "ml", // Will be converted to appropriate units via mappings
+		"length":      "in",
+		"temperature": "f",
+	},
+}
+
+// commonUnitMappings provides alternative units for better recipe display
+var commonUnitMappings = map[UnitSystem]map[string]map[string]string{
+	UnitSystemMetric: {
+		"volume": {
+			"large": "l",  // for volumes >= 1000ml
+			"small": "ml", // for volumes < 1000ml
+		},
+		"mass": {
+			"large": "kg", // for mass >= 1000g
+			"small": "g",  // for mass < 1000g
+		},
+	},
+	UnitSystemUS: {
+		"volume": {
+			"large":  "qt",   // for large volumes
+			"medium": "cup",  // for medium volumes
+			"small":  "tbsp", // for small volumes
+			"tiny":   "tsp",  // for very small volumes
+		},
+	},
+	UnitSystemImperial: {
+		"volume": {
+			"large":  "pt",    // for large volumes
+			"medium": "fl_oz", // for medium volumes
+			"small":  "tbsp",  // for small volumes
+			"tiny":   "tsp",   // for very small volumes
+		},
+	},
+}
+
+// cookingUnitConversions provides conversions for common cooking units to ml (for volume)
+// This supplements the go-units library which doesn't have all cooking units
+var cookingUnitConversions = map[string]float64{
+	// Volume conversions to ml
+	"cup":    236.588,
+	"tbsp":   14.7868,
+	"tsp":    4.92892,
+	"qt":     946.353,
+	"pt":     473.176,
+	"fl_oz":  29.5735,
+	"gallon": 3785.41,
+
+	// Keep metric units
+	"ml": 1.0,
+	"l":  1000.0,
+}
+
+// cookingMassConversions provides conversions for mass units to grams
+var cookingMassConversions = map[string]float64{
+	// Mass conversions to grams
+	"oz": 28.3495,
+	"lb": 453.592,
+	"kg": 1000.0,
+	"g":  1.0,
+}
+
+// convertCookingUnit converts between common cooking units
+func convertCookingUnit(value float64, fromUnit, toUnit string) (float64, error) {
+	// Try volume conversion first
+	if fromMl, okFrom := cookingUnitConversions[fromUnit]; okFrom {
+		if toMl, okTo := cookingUnitConversions[toUnit]; okTo {
+			// Convert from -> ml -> to
+			mlValue := value * fromMl
+			return mlValue / toMl, nil
+		}
+	}
+
+	// Try mass conversion
+	if fromG, okFrom := cookingMassConversions[fromUnit]; okFrom {
+		if toG, okTo := cookingMassConversions[toUnit]; okTo {
+			// Convert from -> g -> to
+			gValue := value * fromG
+			return gValue / toG, nil
+		}
+	}
+
+	return 0, fmt.Errorf("cannot convert from %s to %s", fromUnit, toUnit)
+}
+
+// isCookingUnit checks if a unit is a common cooking unit we can convert
+func isCookingUnit(unit string) bool {
+	_, isVolume := cookingUnitConversions[unit]
+	_, isMass := cookingMassConversions[unit]
+	return isVolume || isMass
+}
+
+// getCookingUnitType returns "volume" or "mass" for cooking units
+func getCookingUnitType(unit string) string {
+	if _, isVolume := cookingUnitConversions[unit]; isVolume {
+		return "volume"
+	}
+	if _, isMass := cookingMassConversions[unit]; isMass {
+		return "mass"
+	}
+	return ""
+}
+
 type StepComponent interface {
 	isStepComponent()
 	Render() string
@@ -345,6 +473,24 @@ func (i *Ingredient) ConvertTo(targetUnitStr string) (*Ingredient, error) {
 		return nil, fmt.Errorf("cannot convert ingredients with 'some' quantity")
 	}
 
+	// Try custom cooking unit conversions first
+	if isCookingUnit(i.Unit) && isCookingUnit(targetUnitStr) {
+		convertedValue, err := convertCookingUnit(float64(i.Quantity), i.Unit, targetUnitStr)
+		if err == nil {
+			targetUnit := createTypedUnit(targetUnitStr)
+			converted := &Ingredient{
+				Name:           i.Name,
+				Quantity:       float32(convertedValue),
+				Unit:           targetUnitStr,
+				TypedUnit:      targetUnit,
+				Subinstruction: i.Subinstruction,
+				NextComponent:  i.NextComponent,
+			}
+			return converted, nil
+		}
+	}
+
+	// Fall back to go-units for other conversions
 	targetUnit, err := units.Find(targetUnitStr)
 	if err != nil {
 		// If unit not found, create a new one
@@ -380,6 +526,13 @@ func (i *Ingredient) CanConvertTo(targetUnitStr string) bool {
 		return false // Can't convert "some" quantities
 	}
 
+	// Try custom cooking unit conversions first
+	if isCookingUnit(i.Unit) && isCookingUnit(targetUnitStr) {
+		_, err := convertCookingUnit(float64(i.Quantity), i.Unit, targetUnitStr)
+		return err == nil
+	}
+
+	// Fall back to go-units
 	targetUnit, err := units.Find(targetUnitStr)
 	if err != nil {
 		// If unit not found, create a new one
@@ -394,6 +547,11 @@ func (i *Ingredient) CanConvertTo(targetUnitStr string) bool {
 func (i *Ingredient) GetUnitType() string {
 	if i.TypedUnit == nil {
 		return ""
+	}
+
+	// Check for custom cooking units first
+	if cookingType := getCookingUnitType(i.Unit); cookingType != "" {
+		return cookingType
 	}
 
 	// Check the unit's quantity type from the predefined quantity types
@@ -628,4 +786,129 @@ func (r *Recipe) GetIngredients() *IngredientList {
 	}
 
 	return ingredientList
+}
+
+// ConvertToSystem converts all convertible ingredients in the list to the target unit system
+func (il *IngredientList) ConvertToSystem(system UnitSystem) *IngredientList {
+	result := NewIngredientList()
+
+	for _, ingredient := range il.Ingredients {
+		converted := ingredient.ConvertToSystem(system)
+		result.Add(converted)
+	}
+
+	return result
+}
+
+// ConvertToSystem converts an ingredient to the target unit system if possible
+func (i *Ingredient) ConvertToSystem(system UnitSystem) *Ingredient {
+	if i.TypedUnit == nil || i.Quantity == -1 {
+		// Return a copy of the ingredient if it can't be converted
+		return &Ingredient{
+			Name:           i.Name,
+			Quantity:       i.Quantity,
+			Unit:           i.Unit,
+			TypedUnit:      i.TypedUnit,
+			Subinstruction: i.Subinstruction,
+			NextComponent:  i.NextComponent,
+		}
+	}
+
+	unitType := i.GetUnitType()
+	canonicalUnit, ok := canonicalUnits[system][unitType]
+	if !ok {
+		// No canonical unit for this type in the target system, return as-is
+		return &Ingredient{
+			Name:           i.Name,
+			Quantity:       i.Quantity,
+			Unit:           i.Unit,
+			TypedUnit:      i.TypedUnit,
+			Subinstruction: i.Subinstruction,
+			NextComponent:  i.NextComponent,
+		}
+	}
+
+	// Try to convert to the canonical unit
+	if converted, err := i.ConvertTo(canonicalUnit); err == nil {
+		// Check if we should use a more appropriate unit based on quantity
+		if alternatives, hasAlternatives := commonUnitMappings[system][unitType]; hasAlternatives {
+			bestUnit := i.getBestUnit(converted.Quantity, canonicalUnit, alternatives)
+			if bestUnit != canonicalUnit {
+				if finalConverted, err := converted.ConvertTo(bestUnit); err == nil {
+					return finalConverted
+				}
+			}
+		}
+		return converted
+	}
+
+	// If conversion failed, return the original ingredient
+	return &Ingredient{
+		Name:           i.Name,
+		Quantity:       i.Quantity,
+		Unit:           i.Unit,
+		TypedUnit:      i.TypedUnit,
+		Subinstruction: i.Subinstruction,
+		NextComponent:  i.NextComponent,
+	}
+}
+
+// getBestUnit selects the most appropriate unit based on quantity
+func (i *Ingredient) getBestUnit(quantity float32, defaultUnit string, alternatives map[string]string) string {
+	unitType := i.GetUnitType()
+
+	switch unitType {
+	case "volume":
+		switch {
+		case quantity >= 946.4 && alternatives["large"] != "": // ~1 quart
+			return alternatives["large"]
+		case quantity >= 236.6 && alternatives["medium"] != "": // ~1 cup
+			return alternatives["medium"]
+		case quantity >= 14.8 && alternatives["small"] != "": // ~1 tbsp
+			return alternatives["small"]
+		case quantity < 14.8 && alternatives["tiny"] != "":
+			return alternatives["tiny"]
+		}
+	case "mass":
+		switch {
+		case quantity >= 1000 && alternatives["large"] != "": // 1kg or more
+			return alternatives["large"]
+		case alternatives["small"] != "":
+			return alternatives["small"]
+		}
+	}
+
+	return defaultUnit
+}
+
+// ConvertToSystemWithConsolidation converts ingredients to a target system and consolidates by name
+func (il *IngredientList) ConvertToSystemWithConsolidation(system UnitSystem) (*IngredientList, error) {
+	converted := il.ConvertToSystem(system)
+	return converted.ConsolidateByName("")
+}
+
+// GetShoppingListInSystem returns a shopping list map with ingredients converted to the target system
+func (r *Recipe) GetShoppingListInSystem(system UnitSystem) (map[string]string, error) {
+	ingredients := r.GetIngredients()
+	converted := ingredients.ConvertToSystem(system)
+	consolidated, err := converted.ConsolidateByName("")
+	if err != nil {
+		return nil, err
+	}
+	return consolidated.ToMap(), nil
+}
+
+// GetMetricShoppingList returns a shopping list with all ingredients in metric units
+func (r *Recipe) GetMetricShoppingList() (map[string]string, error) {
+	return r.GetShoppingListInSystem(UnitSystemMetric)
+}
+
+// GetUSShoppingList returns a shopping list with all ingredients in US units
+func (r *Recipe) GetUSShoppingList() (map[string]string, error) {
+	return r.GetShoppingListInSystem(UnitSystemUS)
+}
+
+// GetImperialShoppingList returns a shopping list with all ingredients in Imperial units
+func (r *Recipe) GetImperialShoppingList() (map[string]string, error) {
+	return r.GetShoppingListInSystem(UnitSystemImperial)
 }
