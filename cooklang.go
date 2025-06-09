@@ -549,11 +549,6 @@ func (i *Ingredient) GetUnitType() string {
 		return ""
 	}
 
-	// Check for custom cooking units first
-	if cookingType := getCookingUnitType(i.Unit); cookingType != "" {
-		return cookingType
-	}
-
 	// Check the unit's quantity type from the predefined quantity types
 	switch {
 	case i.TypedUnit.Quantity == "mass":
