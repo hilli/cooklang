@@ -120,20 +120,20 @@ func ParseFile(filename string) (*Recipe, error) {
 		return nil, err
 	}
 	p := parser.New()
-	recpie, err := p.ParseBytes(content)
+	parsedRecipe, err := p.ParseBytes(content)
 	if err != nil {
 		return nil, err
 	}
-	return ToCooklangRecipe(recpie), nil
+	return ToCooklangRecipe(parsedRecipe), nil
 }
 
 func ParseBytes(content []byte) (*Recipe, error) {
 	p := parser.New()
-	recpie, err := p.ParseBytes(content)
+	parsedRecipe, err := p.ParseBytes(content)
 	if err != nil {
 		return nil, err
 	}
-	return ToCooklangRecipe(recpie), nil
+	return ToCooklangRecipe(parsedRecipe), nil
 }
 
 func ParseString(content string) (*Recipe, error) {
