@@ -555,18 +555,18 @@ func (i *Ingredient) GetUnitType() string {
 	}
 
 	// Check the unit's quantity type from the predefined quantity types
-	switch {
-	case i.TypedUnit.Quantity == "mass":
+	switch i.TypedUnit.Quantity {
+	case "mass":
 		return "mass"
-	case i.TypedUnit.Quantity == "volume":
+	case "volume":
 		return "volume"
-	case i.TypedUnit.Quantity == "length":
+	case "length":
 		return "length"
-	case i.TypedUnit.Quantity == "temperature":
+	case "temperature":
 		return "temperature"
-	case i.TypedUnit.Quantity == "time":
+	case "time":
 		return "time"
-	case i.TypedUnit.Quantity == "energy":
+	case "energy":
 		return "energy"
 	default:
 		return i.TypedUnit.Quantity

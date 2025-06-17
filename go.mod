@@ -5,6 +5,8 @@ go 1.24.3
 // yaml lib used to read the cooklang spec only. Swap to github.com/yaml/go-yaml at some point later this month (/Hilli 2025-06-01)
 require github.com/goccy/go-yaml v1.18.0
 
+require github.com/bcicen/go-units v1.0.5
+
 require (
 	4d63.com/gocheckcompilerdirectives v1.3.0 // indirect
 	4d63.com/gochecknoglobals v0.2.2 // indirect
@@ -33,7 +35,6 @@ require (
 	github.com/ashanbrown/makezero v1.2.0 // indirect
 	github.com/aymanbagabas/go-osc52/v2 v2.0.1 // indirect
 	github.com/bcicen/bfstree v1.0.0 // indirect
-	github.com/bcicen/go-units v1.0.5 // indirect
 	github.com/beorn7/perks v1.0.1 // indirect
 	github.com/bkielbasa/cyclop v1.2.3 // indirect
 	github.com/blizzy78/varnamelen v0.8.0 // indirect
