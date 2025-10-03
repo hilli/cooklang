@@ -46,11 +46,6 @@ func outputJSON(data interface{}) error {
 	return nil
 }
 
-// printError prints an error message to stderr
-func printError(format string, args ...interface{}) {
-	fmt.Fprintf(os.Stderr, "Error: "+format+"\n", args...)
-}
-
 // printSuccess prints a success message
 func printSuccess(format string, args ...interface{}) {
 	fmt.Printf("✓ "+format+"\n", args...)
