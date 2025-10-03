@@ -4,6 +4,18 @@
 
 Go implementation of a cooklang parser.
 
+## Features
+
+- ✅ Full Cooklang specification compliance
+- 🖼️ **Automatic image detection** - Auto-discovers recipe images matching filename patterns
+- 📝 Frontmatter CRUD operations - Programmatically edit recipe metadata
+- 🧮 Unit conversion system with metric/imperial/US systems
+- 📋 Shopping list generation from multiple recipes
+- 🎨 Multiple output formats (Cooklang, Markdown, HTML, JSON)
+- 🔧 Extended mode with ingredient/cookware annotations
+- ⚖️ Recipe scaling and ingredient consolidation
+- 🛠️ Comprehensive CLI tool
+
 ## Cooklang specification
 
 See the [Cooklang specification](https://github.com/cooklang/spec/) for details.

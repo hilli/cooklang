@@ -3,6 +3,7 @@ package cooklang
 import (
 	"fmt"
 	"os"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"time"
@@ -275,7 +276,94 @@ func ParseFile(filename string) (*Recipe, error) {
 	if err != nil {
 		return nil, err
 	}
-	return ToCooklangRecipe(parsedRecipe), nil
+	recipe := ToCooklangRecipe(parsedRecipe)
+	
+	// Auto-detect and add images from filesystem
+	detectedImages := findRecipeImages(filename)
+	if len(detectedImages) > 0 {
+		// Merge detected images with existing ones, avoiding duplicates
+		recipe.Images = mergeUniqueStrings(recipe.Images, detectedImages)
+		// Update metadata to reflect the merged images
+		if len(recipe.Images) > 0 {
+			recipe.Metadata["images"] = strings.Join(recipe.Images, ", ")
+		}
+	}
+	
+	return recipe, nil
+}
+
+// findRecipeImages looks for image files matching the recipe filename pattern.
+// For a recipe file "Recipe.cook", it searches for:
+// - Recipe.jpg, Recipe.jpeg, Recipe.png (base image)
+// - Recipe-1.jpg, Recipe-2.jpg, etc. (numbered variants)
+// Returns just the filenames (not full paths) of found images.
+func findRecipeImages(cookFilePath string) []string {
+	dir := filepath.Dir(cookFilePath)
+	baseName := strings.TrimSuffix(filepath.Base(cookFilePath), ".cook")
+	
+	var images []string
+	extensions := []string{".jpg", ".jpeg", ".png"}
+	
+	// Check for base image (e.g., Recipe.jpg)
+	for _, ext := range extensions {
+		imagePath := filepath.Join(dir, baseName+ext)
+		if fileExists(imagePath) {
+			images = append(images, baseName+ext)
+		}
+	}
+	
+	// Check for numbered images (e.g., Recipe-1.jpg, Recipe-2.jpg)
+	// We'll check up to 99 numbered variants
+	for i := 1; i <= 99; i++ {
+		foundAny := false
+		for _, ext := range extensions {
+			numberedName := fmt.Sprintf("%s-%d%s", baseName, i, ext)
+			imagePath := filepath.Join(dir, numberedName)
+			if fileExists(imagePath) {
+				images = append(images, numberedName)
+				foundAny = true
+			}
+		}
+		// If we didn't find any images for this number, stop searching
+		if !foundAny {
+			break
+		}
+	}
+	
+	return images
+}
+
+// fileExists checks if a file exists and is not a directory
+func fileExists(path string) bool {
+	info, err := os.Stat(path)
+	if err != nil {
+		return false
+	}
+	return !info.IsDir()
+}
+
+// mergeUniqueStrings merges two string slices, removing duplicates
+func mergeUniqueStrings(slice1, slice2 []string) []string {
+	seen := make(map[string]bool)
+	result := make([]string, 0, len(slice1)+len(slice2))
+	
+	// Add all items from slice1
+	for _, item := range slice1 {
+		if item != "" && !seen[item] {
+			seen[item] = true
+			result = append(result, item)
+		}
+	}
+	
+	// Add items from slice2 that aren't already present
+	for _, item := range slice2 {
+		if item != "" && !seen[item] {
+			seen[item] = true
+			result = append(result, item)
+		}
+	}
+	
+	return result
 }
 
 func ParseBytes(content []byte) (*Recipe, error) {
