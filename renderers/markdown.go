@@ -50,6 +50,33 @@ func (mr MarkdownRenderer) RenderRecipe(recipe *cooklang.Recipe) string {
 		}
 	}
 
+	// Ingredients list
+	ingredients := recipe.GetIngredients()
+	if len(ingredients.Ingredients) > 0 {
+		result.WriteString("## Ingredients\n\n")
+
+		for _, ingredient := range ingredients.Ingredients {
+			result.WriteString("- ")
+			if ingredient.Quantity > 0 {
+				if ingredient.Unit != "" {
+					result.WriteString(fmt.Sprintf("**%g %s** %s\n", ingredient.Quantity, ingredient.Unit, ingredient.Name))
+				} else {
+					result.WriteString(fmt.Sprintf("**%g** %s\n", ingredient.Quantity, ingredient.Name))
+				}
+			} else if ingredient.Quantity == -1 {
+				// "some" quantity
+				if ingredient.Unit != "" {
+					result.WriteString(fmt.Sprintf("**some %s** %s\n", ingredient.Unit, ingredient.Name))
+				} else {
+					result.WriteString(fmt.Sprintf("**some** %s\n", ingredient.Name))
+				}
+			} else {
+				result.WriteString(fmt.Sprintf("%s\n", ingredient.Name))
+			}
+		}
+		result.WriteString("\n")
+	}
+
 	// Instructions
 	result.WriteString("## Instructions\n\n")
 

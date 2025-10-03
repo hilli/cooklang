@@ -912,3 +912,144 @@ func (r *Recipe) GetUSShoppingList() (map[string]string, error) {
 func (r *Recipe) GetImperialShoppingList() (map[string]string, error) {
 	return r.GetShoppingListInSystem(UnitSystemImperial)
 }
+
+// GetCollectedIngredients returns a consolidated list of all ingredients from the recipe
+// This combines GetIngredients() and ConsolidateByName() into a single convenient function
+func (r *Recipe) GetCollectedIngredients() (*IngredientList, error) {
+	ingredients := r.GetIngredients()
+	return ingredients.ConsolidateByName("")
+}
+
+// GetCollectedIngredientsWithUnit returns a consolidated list of all ingredients from the recipe,
+// converting them to the specified target unit when possible
+func (r *Recipe) GetCollectedIngredientsWithUnit(targetUnit string) (*IngredientList, error) {
+	ingredients := r.GetIngredients()
+	return ingredients.ConsolidateByName(targetUnit)
+}
+
+// GetCollectedIngredientsMap returns a map of ingredient names to their consolidated quantities
+// This is useful for creating shopping lists or ingredient summaries
+func (r *Recipe) GetCollectedIngredientsMap() (map[string]string, error) {
+	collectedIngredients, err := r.GetCollectedIngredients()
+	if err != nil {
+		return nil, err
+	}
+	return collectedIngredients.ToMap(), nil
+}
+
+// ShoppingList represents a consolidated list of ingredients from multiple recipes
+type ShoppingList struct {
+	Ingredients *IngredientList `json:"ingredients"`
+	Recipes     []string        `json:"recipes,omitempty"` // List of recipe titles
+}
+
+// CreateShoppingList creates a consolidated shopping list from multiple recipes
+// All ingredients from all recipes are combined and consolidated by name
+func CreateShoppingList(recipes ...*Recipe) (*ShoppingList, error) {
+	if len(recipes) == 0 {
+		return &ShoppingList{
+			Ingredients: &IngredientList{Ingredients: []*Ingredient{}},
+			Recipes:     []string{},
+		}, nil
+	}
+
+	// Collect all ingredients from all recipes
+	allIngredients := []*Ingredient{}
+	recipeNames := []string{}
+
+	for _, recipe := range recipes {
+		ingredients := recipe.GetIngredients()
+		allIngredients = append(allIngredients, ingredients.Ingredients...)
+		if recipe.Title != "" {
+			recipeNames = append(recipeNames, recipe.Title)
+		}
+	}
+
+	// Create a combined ingredient list and consolidate
+	combinedList := &IngredientList{Ingredients: allIngredients}
+	consolidated, err := combinedList.ConsolidateByName("")
+	if err != nil {
+		return nil, err
+	}
+
+	return &ShoppingList{
+		Ingredients: consolidated,
+		Recipes:     recipeNames,
+	}, nil
+}
+
+// CreateShoppingListWithUnit creates a shopping list with ingredients converted to the target unit
+func CreateShoppingListWithUnit(targetUnit string, recipes ...*Recipe) (*ShoppingList, error) {
+	if len(recipes) == 0 {
+		return &ShoppingList{
+			Ingredients: &IngredientList{Ingredients: []*Ingredient{}},
+			Recipes:     []string{},
+		}, nil
+	}
+
+	// Collect all ingredients from all recipes
+	allIngredients := []*Ingredient{}
+	recipeNames := []string{}
+
+	for _, recipe := range recipes {
+		ingredients := recipe.GetIngredients()
+		allIngredients = append(allIngredients, ingredients.Ingredients...)
+		if recipe.Title != "" {
+			recipeNames = append(recipeNames, recipe.Title)
+		}
+	}
+
+	// Create a combined ingredient list and consolidate with unit conversion
+	combinedList := &IngredientList{Ingredients: allIngredients}
+	consolidated, err := combinedList.ConsolidateByName(targetUnit)
+	if err != nil {
+		return nil, err
+	}
+
+	return &ShoppingList{
+		Ingredients: consolidated,
+		Recipes:     recipeNames,
+	}, nil
+}
+
+// ToMap returns the shopping list as a map of ingredient names to quantities
+func (sl *ShoppingList) ToMap() map[string]string {
+	if sl.Ingredients == nil {
+		return map[string]string{}
+	}
+	return sl.Ingredients.ToMap()
+}
+
+// Scale scales all ingredients in the shopping list by the given multiplier
+// This is useful when adjusting recipe servings or batch cooking
+func (sl *ShoppingList) Scale(multiplier float64) *ShoppingList {
+	if sl.Ingredients == nil || len(sl.Ingredients.Ingredients) == 0 {
+		return sl
+	}
+
+	scaledIngredients := make([]*Ingredient, len(sl.Ingredients.Ingredients))
+	for i, ingredient := range sl.Ingredients.Ingredients {
+		scaledIngredient := &Ingredient{
+			Name:     ingredient.Name,
+			Quantity: ingredient.Quantity,
+			Unit:     ingredient.Unit,
+		}
+		if ingredient.Quantity > 0 {
+			scaledIngredient.Quantity = ingredient.Quantity * float32(multiplier)
+		}
+		scaledIngredients[i] = scaledIngredient
+	}
+
+	return &ShoppingList{
+		Ingredients: &IngredientList{Ingredients: scaledIngredients},
+		Recipes:     sl.Recipes,
+	}
+}
+
+// Count returns the number of unique ingredients in the shopping list
+func (sl *ShoppingList) Count() int {
+	if sl.Ingredients == nil {
+		return 0
+	}
+	return len(sl.Ingredients.Ingredients)
+}
