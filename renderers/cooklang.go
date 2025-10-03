@@ -43,10 +43,16 @@ func (cr CooklangRenderer) RenderRecipe(recipe *cooklang.Recipe) string {
 		metadata.WriteString(fmt.Sprintf("servings: %g\n", recipe.Servings))
 	}
 	if len(recipe.Tags) > 0 {
-		metadata.WriteString(fmt.Sprintf("tags: %s\n", strings.Join(recipe.Tags, ", ")))
+		metadata.WriteString("tags:\n")
+		for _, tag := range recipe.Tags {
+			metadata.WriteString(fmt.Sprintf("  - %s\n", tag))
+		}
 	}
 	if len(recipe.Images) > 0 {
-		metadata.WriteString(fmt.Sprintf("images: %s\n", strings.Join(recipe.Images, ", ")))
+		metadata.WriteString("images:\n")
+		for _, img := range recipe.Images {
+			metadata.WriteString(fmt.Sprintf("  - %s\n", img))
+		}
 	}
 
 	// Render metadata in YAML frontmatter block if present

@@ -21,7 +21,8 @@ func (mr MarkdownRenderer) RenderRecipe(recipe *cooklang.Recipe) string {
 	// Metadata section
 	if recipe.Description != "" || recipe.Cuisine != "" || recipe.Difficulty != "" ||
 		recipe.PrepTime != "" || recipe.TotalTime != "" || recipe.Author != "" ||
-		recipe.Servings > 0 || len(recipe.Tags) > 0 {
+		recipe.Servings > 0 || len(recipe.Tags) > 0 || len(recipe.Images) > 0 ||
+		!recipe.Date.IsZero() || len(recipe.Metadata) > 0 {
 		result.WriteString("## Recipe Information\n\n")
 
 		if recipe.Description != "" {
@@ -29,6 +30,9 @@ func (mr MarkdownRenderer) RenderRecipe(recipe *cooklang.Recipe) string {
 		}
 		if recipe.Cuisine != "" {
 			result.WriteString(fmt.Sprintf("**Cuisine:** %s\n\n", recipe.Cuisine))
+		}
+		if !recipe.Date.IsZero() {
+			result.WriteString(fmt.Sprintf("**Date:** %s\n\n", recipe.Date.Format("2006-01-02")))
 		}
 		if recipe.Difficulty != "" {
 			result.WriteString(fmt.Sprintf("**Difficulty:** %s\n\n", recipe.Difficulty))
@@ -46,7 +50,29 @@ func (mr MarkdownRenderer) RenderRecipe(recipe *cooklang.Recipe) string {
 			result.WriteString(fmt.Sprintf("**Servings:** %g\n\n", recipe.Servings))
 		}
 		if len(recipe.Tags) > 0 {
-			result.WriteString(fmt.Sprintf("**Tags:** %s\n\n", strings.Join(recipe.Tags, ", ")))
+			result.WriteString("**Tags:**\n")
+			for _, tag := range recipe.Tags {
+				result.WriteString(fmt.Sprintf("  - %s\n", tag))
+			}
+			result.WriteString("\n")
+		}
+		if len(recipe.Images) > 0 {
+			result.WriteString("**Images:**\n")
+			for _, img := range recipe.Images {
+				result.WriteString(fmt.Sprintf("  - %s\n", img))
+			}
+			result.WriteString("\n")
+		}
+		// Include any additional metadata fields
+		if len(recipe.Metadata) > 0 {
+			for key, value := range recipe.Metadata {
+				// Skip fields already displayed above
+				if key != "title" && key != "cuisine" && key != "date" && key != "description" &&
+					key != "difficulty" && key != "prep_time" && key != "total_time" &&
+					key != "author" && key != "servings" && key != "tags" && key != "images" && key != "image" {
+					result.WriteString(fmt.Sprintf("**%s:** %s\n\n", strings.Title(strings.ReplaceAll(key, "_", " ")), value))
+				}
+			}
 		}
 	}
 
@@ -95,17 +121,26 @@ func (mr MarkdownRenderer) RenderRecipe(recipe *cooklang.Recipe) string {
 				} else {
 					result.WriteString(fmt.Sprintf("**%s**", comp.Name))
 				}
+				if comp.Annotation != "" {
+					result.WriteString(fmt.Sprintf(" (%s)", comp.Annotation))
+				}
 			case *cooklang.Cookware:
 				if comp.Quantity > 1 {
 					result.WriteString(fmt.Sprintf("*%s* (x%d)", comp.Name, comp.Quantity))
 				} else {
 					result.WriteString(fmt.Sprintf("*%s*", comp.Name))
 				}
+				if comp.Annotation != "" {
+					result.WriteString(fmt.Sprintf(" (%s)", comp.Annotation))
+				}
 			case *cooklang.Timer:
 				if comp.Name != "" {
 					result.WriteString(fmt.Sprintf("⏲️ %s (%s)", comp.Name, comp.Duration))
 				} else {
 					result.WriteString(fmt.Sprintf("⏲️ %s", comp.Duration))
+				}
+				if comp.Annotation != "" {
+					result.WriteString(fmt.Sprintf(" (%s)", comp.Annotation))
 				}
 			case *cooklang.Instruction:
 				result.WriteString(comp.Text)

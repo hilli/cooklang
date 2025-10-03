@@ -34,18 +34,21 @@ go install github.com/hilli/cooklang/cmd/cook@latest
 By default, the Cook CLI uses **extended mode** which supports additional features beyond the canonical Cooklang specification. Use the `--canonical` flag to disable extended features and parse in strict canonical mode.
 
 **Extended Mode Features (Default):**
+
 - ✅ Multi-word timer names: `~roast time{4%hours}`
 - ✅ Ingredient annotations: `@milk{1%l}(cold)`
 - ✅ Cookware annotations: `#martini glass{}(Chilled)`
 - ✅ Comments as components (preserved in output)
 
 **Canonical Mode:**
+
 ```bash
 cook parse recipe.cook --canonical
 cook render recipe.cook --canonical --format cooklang
 ```
 
 In canonical mode:
+
 - Comments are ignored
 - Timer names must be single words
 - Annotations are still parsed but may be treated differently

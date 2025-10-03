@@ -98,4 +98,49 @@ func TestBasicRenderers(t *testing.T) {
 			t.Errorf("Expected custom renderer output 'Custom: Test Pasta', got: %s", output)
 		}
 	})
+
+	t.Run("CooklangArrayFormatting", func(t *testing.T) {
+		// Test that arrays are properly formatted in YAML frontmatter
+		recipeWithArrays := &cooklang.Recipe{
+			Title:    "Array Test Recipe",
+			Tags:     []string{"tag1", "tag2", "tag3"},
+			Images:   []string{"image1.jpg", "image2.jpg"},
+			Servings: 4,
+		}
+
+		output := recipeWithArrays.RenderWith(Default.Cooklang)
+
+		// Check that tags are formatted as YAML array
+		if !strings.Contains(output, "tags:\n") {
+			t.Errorf("Expected tags to start with 'tags:\\n', got: %s", output)
+		}
+		if !strings.Contains(output, "  - tag1") {
+			t.Errorf("Expected tag1 formatted as '  - tag1', got: %s", output)
+		}
+		if !strings.Contains(output, "  - tag2") {
+			t.Errorf("Expected tag2 formatted as '  - tag2', got: %s", output)
+		}
+		if !strings.Contains(output, "  - tag3") {
+			t.Errorf("Expected tag3 formatted as '  - tag3', got: %s", output)
+		}
+
+		// Check that images are formatted as YAML array
+		if !strings.Contains(output, "images:\n") {
+			t.Errorf("Expected images to start with 'images:\\n', got: %s", output)
+		}
+		if !strings.Contains(output, "  - image1.jpg") {
+			t.Errorf("Expected image1.jpg formatted as '  - image1.jpg', got: %s", output)
+		}
+		if !strings.Contains(output, "  - image2.jpg") {
+			t.Errorf("Expected image2.jpg formatted as '  - image2.jpg', got: %s", output)
+		}
+
+		// Ensure arrays are NOT comma-separated
+		if strings.Contains(output, "tags: tag1, tag2, tag3") {
+			t.Errorf("Tags should not be comma-separated, got: %s", output)
+		}
+		if strings.Contains(output, "images: image1.jpg, image2.jpg") {
+			t.Errorf("Images should not be comma-separated, got: %s", output)
+		}
+	})
 }

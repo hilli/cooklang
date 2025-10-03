@@ -55,6 +55,42 @@ func (hr HTMLRenderer) RenderRecipe(recipe *cooklang.Recipe) string {
 	result.WriteString("    </dl>\n")
 	result.WriteString("  </div>\n")
 
+	// Ingredients list
+	ingredients := recipe.GetIngredients()
+	if len(ingredients.Ingredients) > 0 {
+		result.WriteString("  <div class=\"recipe-ingredients\">\n")
+		result.WriteString("    <h2>Ingredients</h2>\n")
+		result.WriteString("    <ul>\n")
+
+		for _, ingredient := range ingredients.Ingredients {
+			result.WriteString("      <li>")
+			if ingredient.Quantity > 0 {
+				if ingredient.Unit != "" {
+					result.WriteString(fmt.Sprintf("<span class=\"quantity\">%g %s</span> <span class=\"ingredient\">%s</span>",
+						ingredient.Quantity, html.EscapeString(ingredient.Unit), html.EscapeString(ingredient.Name)))
+				} else {
+					result.WriteString(fmt.Sprintf("<span class=\"quantity\">%g</span> <span class=\"ingredient\">%s</span>",
+						ingredient.Quantity, html.EscapeString(ingredient.Name)))
+				}
+			} else if ingredient.Quantity == -1 {
+				// "some" quantity
+				if ingredient.Unit != "" {
+					result.WriteString(fmt.Sprintf("<span class=\"quantity\">some %s</span> <span class=\"ingredient\">%s</span>",
+						html.EscapeString(ingredient.Unit), html.EscapeString(ingredient.Name)))
+				} else {
+					result.WriteString(fmt.Sprintf("<span class=\"quantity\">some</span> <span class=\"ingredient\">%s</span>",
+						html.EscapeString(ingredient.Name)))
+				}
+			} else {
+				result.WriteString(fmt.Sprintf("<span class=\"ingredient\">%s</span>", html.EscapeString(ingredient.Name)))
+			}
+			result.WriteString("</li>\n")
+		}
+
+		result.WriteString("    </ul>\n")
+		result.WriteString("  </div>\n")
+	}
+
 	// Instructions
 	result.WriteString("  <div class=\"recipe-instructions\">\n")
 	result.WriteString("    <h2>Instructions</h2>\n")
@@ -76,6 +112,9 @@ func (hr HTMLRenderer) RenderRecipe(recipe *cooklang.Recipe) string {
 				} else {
 					result.WriteString(fmt.Sprintf("<span class=\"ingredient\">%s</span>", html.EscapeString(comp.Name)))
 				}
+				if comp.Annotation != "" {
+					result.WriteString(fmt.Sprintf(" <span class=\"annotation\">(%s)</span>", html.EscapeString(comp.Annotation)))
+				}
 			case *cooklang.Cookware:
 				if comp.Quantity > 1 {
 					result.WriteString(fmt.Sprintf("<span class=\"cookware\">%s</span> <span class=\"quantity\">(x%d)</span>",
@@ -83,12 +122,18 @@ func (hr HTMLRenderer) RenderRecipe(recipe *cooklang.Recipe) string {
 				} else {
 					result.WriteString(fmt.Sprintf("<span class=\"cookware\">%s</span>", html.EscapeString(comp.Name)))
 				}
+				if comp.Annotation != "" {
+					result.WriteString(fmt.Sprintf(" <span class=\"annotation\">(%s)</span>", html.EscapeString(comp.Annotation)))
+				}
 			case *cooklang.Timer:
 				if comp.Name != "" {
 					result.WriteString(fmt.Sprintf("<span class=\"timer\">⏲️ %s (%s)</span>",
 						html.EscapeString(comp.Name), html.EscapeString(comp.Duration)))
 				} else {
 					result.WriteString(fmt.Sprintf("<span class=\"timer\">⏲️ %s</span>", html.EscapeString(comp.Duration)))
+				}
+				if comp.Annotation != "" {
+					result.WriteString(fmt.Sprintf(" <span class=\"annotation\">(%s)</span>", html.EscapeString(comp.Annotation)))
 				}
 			case *cooklang.Instruction:
 				result.WriteString(html.EscapeString(comp.Text))

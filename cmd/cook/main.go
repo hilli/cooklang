@@ -11,7 +11,7 @@ var (
 	version = "dev"
 	commit  = "none"
 	date    = "unknown"
-	
+
 	// Global flags
 	canonicalMode bool // When true, use canonical spec mode (no extended features)
 )
@@ -43,7 +43,7 @@ Visit https://cooklang.org for more information about the Cooklang format.`,
 
 func init() {
 	rootCmd.SetVersionTemplate(fmt.Sprintf("cook version %s (commit: %s, built: %s)\n", version, commit, date))
-	
+
 	// Add global flags
 	rootCmd.PersistentFlags().BoolVar(&canonicalMode, "canonical", false, "Use canonical spec mode (disable extended features)")
 }

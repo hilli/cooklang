@@ -556,6 +556,25 @@ func (p *CooklangParser) parseTimer(l *lexer.Lexer) (Component, error) {
 		// Put the token back if it's neither IDENT nor LBRACE
 		l.PutBackToken(tok)
 	}
+
+	// Check for annotation in parentheses (extended mode feature)
+	tok = l.NextToken()
+	if tok.Type == token.LPAREN {
+		// Parse annotation until closing parenthesis
+		var annotationParts []string
+		for {
+			tok = l.NextToken()
+			if tok.Type == token.RPAREN || tok.Type == token.EOF {
+				break
+			}
+			annotationParts = append(annotationParts, tok.Literal)
+		}
+		component.Value = strings.Join(annotationParts, "")
+	} else {
+		// Put back the token we peeked at
+		l.PutBackToken(tok)
+	}
+
 	return component, nil
 }
 

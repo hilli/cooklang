@@ -185,13 +185,19 @@ func (Cookware) isStepComponent()    {}
 func (Ingredient) isStepComponent()  {}
 
 func (i Ingredient) Render() string {
+	var result string
 	if i.Quantity > 0 {
-		return fmt.Sprintf("@%s{%g%%%s}", i.Name, i.Quantity, i.Unit)
+		result = fmt.Sprintf("@%s{%g%%%s}", i.Name, i.Quantity, i.Unit)
 	} else if i.Quantity == -1 {
 		// -1 indicates "some" quantity
-		return fmt.Sprintf("@%s{}", i.Name)
+		result = fmt.Sprintf("@%s{}", i.Name)
+	} else {
+		result = fmt.Sprintf("@%s{}", i.Name)
 	}
-	return fmt.Sprintf("@%s{}", i.Name)
+	if i.Annotation != "" {
+		result += fmt.Sprintf("(%s)", i.Annotation)
+	}
+	return result
 }
 
 func (inst Instruction) Render() string {
@@ -199,17 +205,29 @@ func (inst Instruction) Render() string {
 }
 
 func (t Timer) Render() string {
+	var result string
 	if t.Name != "" {
-		return fmt.Sprintf("~%s{%s}", t.Name, t.Duration)
+		result = fmt.Sprintf("~%s{%s}", t.Name, t.Duration)
+	} else {
+		result = fmt.Sprintf("~{%s}", t.Duration)
 	}
-	return fmt.Sprintf("~{%s}", t.Duration)
+	if t.Annotation != "" {
+		result += fmt.Sprintf("(%s)", t.Annotation)
+	}
+	return result
 }
 
 func (c Cookware) Render() string {
+	var result string
 	if c.Quantity > 1 {
-		return fmt.Sprintf("#%s{%d}", c.Name, c.Quantity)
+		result = fmt.Sprintf("#%s{%d}", c.Name, c.Quantity)
+	} else {
+		result = fmt.Sprintf("#%s{}", c.Name)
 	}
-	return fmt.Sprintf("#%s{}", c.Name)
+	if c.Annotation != "" {
+		result += fmt.Sprintf("(%s)", c.Annotation)
+	}
+	return result
 }
 
 type Ingredient struct {
@@ -218,6 +236,7 @@ type Ingredient struct {
 	Unit           string        `json:"unit,omitempty"`
 	TypedUnit      *units.Unit   `json:"typed_unit,omitempty"`
 	Subinstruction string        `json:"value,omitempty"`
+	Annotation     string        `json:"annotation,omitempty"`
 	NextComponent  StepComponent `json:"next_component,omitempty"`
 	CooklangRenderable
 }
@@ -233,6 +252,7 @@ type Timer struct {
 	Name          string        `json:"name,omitempty"`
 	Text          string        `json:"text,omitempty"`
 	Unit          string        `json:"unit,omitempty"`
+	Annotation    string        `json:"annotation,omitempty"`
 	NextComponent StepComponent `json:"next_component,omitempty"`
 	CooklangRenderable
 }
@@ -240,6 +260,7 @@ type Timer struct {
 type Cookware struct {
 	Name          string        `json:"name,omitempty"`
 	Quantity      int           `json:"quantity,omitempty"`
+	Annotation    string        `json:"annotation,omitempty"`
 	NextComponent StepComponent `json:"next_component,omitempty"`
 	CooklangRenderable
 }
@@ -344,15 +365,13 @@ func ToCooklangRecipe(pRecipe *parser.Recipe) *Recipe {
 
 	var prevStep *Step
 
-	for stepIndex, step := range pRecipe.Steps {
-		fmt.Println("Converting step:", stepIndex+1, "with components:", len(step.Components))
+	for _, step := range pRecipe.Steps {
 
 		newStep := &Step{}
 
 		var prevComponent StepComponent
 
 		for _, component := range step.Components {
-			fmt.Printf("  Component: %#v\n", component)
 
 			var stepComp StepComponent
 
@@ -370,10 +389,11 @@ func ToCooklangRecipe(pRecipe *parser.Recipe) *Recipe {
 					}
 				}
 				stepComp = &Ingredient{
-					Name:      component.Name,
-					Quantity:  quant,
-					Unit:      component.Unit,
-					TypedUnit: createTypedUnit(component.Unit),
+					Name:       component.Name,
+					Quantity:   quant,
+					Unit:       component.Unit,
+					TypedUnit:  createTypedUnit(component.Unit),
+					Annotation: component.Value,
 				}
 			case "cookware":
 				cookwareQuant, err := strconv.Atoi(component.Quantity)
@@ -381,16 +401,17 @@ func ToCooklangRecipe(pRecipe *parser.Recipe) *Recipe {
 					cookwareQuant = 1 // Default to 1 if parsing fails
 				}
 				stepComp = &Cookware{
-					Name:     component.Name,
-					Quantity: cookwareQuant,
+					Name:       component.Name,
+					Quantity:   cookwareQuant,
+					Annotation: component.Value,
 				}
 			case "timer":
 				stepComp = &Timer{
-					Duration: component.Quantity,
-					Name:     component.Name,
+					Duration:   component.Quantity,
+					Name:       component.Name,
+					Annotation: component.Value,
 				}
 			case "text":
-				fmt.Printf("Adding text component: %s\n", component.Value)
 				stepComp = &Instruction{
 					Text: component.Value,
 				}
