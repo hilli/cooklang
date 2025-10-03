@@ -10,6 +10,7 @@ A comprehensive command-line tool for parsing, rendering, and managing [Cooklang
 - 🎨 **Render recipes** in multiple formats (Cooklang, Markdown, HTML)
 - ⚖️ **Scale recipes** to different serving sizes
 - 🔄 **Unit conversion** between metric and imperial systems
+- 🔧 **Extended mode** (default) with additional features beyond canonical spec
 
 ## Installation
 
@@ -25,6 +26,29 @@ go build -o cook .
 ```bash
 go install github.com/hilli/cooklang/cmd/cook@latest
 ```
+
+## Global Flags
+
+### `--canonical`
+
+By default, the Cook CLI uses **extended mode** which supports additional features beyond the canonical Cooklang specification. Use the `--canonical` flag to disable extended features and parse in strict canonical mode.
+
+**Extended Mode Features (Default):**
+- ✅ Multi-word timer names: `~roast time{4%hours}`
+- ✅ Ingredient annotations: `@milk{1%l}(cold)`
+- ✅ Cookware annotations: `#martini glass{}(Chilled)`
+- ✅ Comments as components (preserved in output)
+
+**Canonical Mode:**
+```bash
+cook parse recipe.cook --canonical
+cook render recipe.cook --canonical --format cooklang
+```
+
+In canonical mode:
+- Comments are ignored
+- Timer names must be single words
+- Annotations are still parsed but may be treated differently
 
 ## Commands
 
@@ -288,10 +312,58 @@ cook render new-recipe.cook --format markdown --output recipe.md
 cook render new-recipe.cook --format html --output recipe.html
 ```
 
-## Global Flags
+### Extended Mode vs Canonical Mode
 
-- `--help, -h`: Help for any command
-- `--version, -v`: Show version information
+The Cook CLI defaults to **extended mode**, which supports additional features beyond the canonical Cooklang specification. This allows for more expressive recipes with annotations and multi-word timers.
+
+**Examples of Extended Features:**
+
+```cooklang
+-- Comments are preserved as components
+This step shows how to prepare the ingredients
+
+-- Multi-word timer names
+Roast for ~roast time{4%hours} until golden brown
+
+-- Ingredient annotations  
+Add @milk{1%l}(cold) to the bowl
+Mix in @eggs{2}(at room temperature)
+
+-- Cookware annotations
+Strain into a #martini glass{}(Chilled)
+Use a #Dutch oven, 6-qt{}(preheated)
+```
+
+**Using Canonical Mode:**
+
+If you need strict compliance with the canonical spec (e.g., for compatibility with other tools), use the `--canonical` flag:
+
+```bash
+# Parse in canonical mode
+cook parse recipe.cook --canonical
+
+# Render in canonical mode (may lose extended features)
+cook render recipe.cook --canonical --format cooklang
+
+# All commands support the flag
+cook ingredients recipe.cook --canonical
+cook shopping-list recipe.cook --canonical
+cook scale recipe.cook --servings 4 --canonical
+```
+
+**When to use Canonical Mode:**
+
+- ✅ Ensuring compatibility with other Cooklang tools
+- ✅ Strict adherence to Cooklang spec v7
+- ✅ Validating recipes for canonical compliance
+- ✅ Exporting for systems that don't support extended features
+
+**When to use Extended Mode (Default):**
+
+- ✅ Taking advantage of descriptive timer names
+- ✅ Adding preparation notes via annotations
+- ✅ Preserving comments for documentation
+- ✅ Creating more detailed, self-documenting recipes
 
 ## Output Formats
 

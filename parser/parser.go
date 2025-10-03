@@ -397,14 +397,17 @@ func (p *CooklangParser) parseIngredient(l *lexer.Lexer) (Component, error) {
 func (p *CooklangParser) parseCookware(l *lexer.Lexer) (Component, error) {
 	component := Component{Type: "cookware", Quantity: "1"} // Always default to "1"
 
-	// Collect IDENT, INT, DASH, and WHITESPACE tokens and look for braces
+	// Collect IDENT, INT, DASH, WHITESPACE, and other valid name tokens and look for braces
 	var nameTokens []token.Token
 
-	// Collect all consecutive IDENT, INT, DASH, and WHITESPACE tokens
+	// Collect all consecutive valid name tokens (everything except reserved characters)
 	for {
 		tok := l.NextToken()
 
-		if tok.Type == token.IDENT || tok.Type == token.INT || tok.Type == token.DASH || tok.Type == token.WHITESPACE {
+		// Accept most tokens as part of the name, stop only at braces, parens, or newlines
+		if tok.Type == token.IDENT || tok.Type == token.INT || tok.Type == token.DASH ||
+			tok.Type == token.WHITESPACE || tok.Type == token.PERIOD || tok.Type == token.COMMA ||
+			tok.Type == token.ILLEGAL {
 			nameTokens = append(nameTokens, tok)
 		} else if tok.Type == token.LBRACE {
 			// Found braces - all the tokens we collected are part of the name

@@ -21,3 +21,7 @@ tasks:
     cmds:
       - go vet ./...
       - golangci-lint run
+
+  cli:
+    cmds:
+      - go build -o cook ./cmd/cook

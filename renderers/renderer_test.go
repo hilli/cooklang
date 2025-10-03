@@ -43,8 +43,14 @@ func TestBasicRenderers(t *testing.T) {
 
 	t.Run("CooklangRenderer", func(t *testing.T) {
 		output := recipe.RenderWith(Default.Cooklang)
-		if !strings.Contains(output, ">> title: Test Pasta") {
-			t.Errorf("Expected Cooklang metadata format, got: %s", output)
+		if !strings.Contains(output, "---") {
+			t.Errorf("Expected YAML frontmatter delimiter '---', got: %s", output)
+		}
+		if !strings.Contains(output, "title: Test Pasta") {
+			t.Errorf("Expected YAML metadata format (without >>), got: %s", output)
+		}
+		if strings.Contains(output, ">>") {
+			t.Errorf("Expected YAML format without >> prefix, got: %s", output)
 		}
 		if !strings.Contains(output, "@water{2%liters}") {
 			t.Errorf("Expected Cooklang ingredient format, got: %s", output)

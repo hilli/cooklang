@@ -12,45 +12,48 @@ type CooklangRenderer struct{}
 
 func (cr CooklangRenderer) RenderRecipe(recipe *cooklang.Recipe) string {
 	var result strings.Builder
+	var metadata strings.Builder
 
-	// Render metadata
+	// Collect metadata
 	if recipe.Title != "" {
-		result.WriteString(fmt.Sprintf(">> title: %s\n", recipe.Title))
+		metadata.WriteString(fmt.Sprintf("title: %s\n", recipe.Title))
 	}
 	if recipe.Cuisine != "" {
-		result.WriteString(fmt.Sprintf(">> cuisine: %s\n", recipe.Cuisine))
+		metadata.WriteString(fmt.Sprintf("cuisine: %s\n", recipe.Cuisine))
 	}
 	if !recipe.Date.IsZero() {
-		result.WriteString(fmt.Sprintf(">> date: %s\n", recipe.Date.Format("2006-01-02")))
+		metadata.WriteString(fmt.Sprintf("date: %s\n", recipe.Date.Format("2006-01-02")))
 	}
 	if recipe.Description != "" {
-		result.WriteString(fmt.Sprintf(">> description: %s\n", recipe.Description))
+		metadata.WriteString(fmt.Sprintf("description: %s\n", recipe.Description))
 	}
 	if recipe.Difficulty != "" {
-		result.WriteString(fmt.Sprintf(">> difficulty: %s\n", recipe.Difficulty))
+		metadata.WriteString(fmt.Sprintf("difficulty: %s\n", recipe.Difficulty))
 	}
 	if recipe.PrepTime != "" {
-		result.WriteString(fmt.Sprintf(">> prep_time: %s\n", recipe.PrepTime))
+		metadata.WriteString(fmt.Sprintf("prep_time: %s\n", recipe.PrepTime))
 	}
 	if recipe.TotalTime != "" {
-		result.WriteString(fmt.Sprintf(">> total_time: %s\n", recipe.TotalTime))
+		metadata.WriteString(fmt.Sprintf("total_time: %s\n", recipe.TotalTime))
 	}
 	if recipe.Author != "" {
-		result.WriteString(fmt.Sprintf(">> author: %s\n", recipe.Author))
+		metadata.WriteString(fmt.Sprintf("author: %s\n", recipe.Author))
 	}
 	if recipe.Servings > 0 {
-		result.WriteString(fmt.Sprintf(">> servings: %g\n", recipe.Servings))
+		metadata.WriteString(fmt.Sprintf("servings: %g\n", recipe.Servings))
 	}
 	if len(recipe.Tags) > 0 {
-		result.WriteString(fmt.Sprintf(">> tags: %s\n", strings.Join(recipe.Tags, ", ")))
+		metadata.WriteString(fmt.Sprintf("tags: %s\n", strings.Join(recipe.Tags, ", ")))
 	}
 	if len(recipe.Images) > 0 {
-		result.WriteString(fmt.Sprintf(">> images: %s\n", strings.Join(recipe.Images, ", ")))
+		metadata.WriteString(fmt.Sprintf("images: %s\n", strings.Join(recipe.Images, ", ")))
 	}
 
-	// Add blank line after metadata
-	if result.Len() > 0 {
-		result.WriteString("\n")
+	// Render metadata in YAML frontmatter block if present
+	if metadata.Len() > 0 {
+		result.WriteString("---\n")
+		result.WriteString(metadata.String())
+		result.WriteString("---\n\n")
 	}
 
 	// Render steps

@@ -6,20 +6,27 @@ import (
 	"os"
 
 	"github.com/hilli/cooklang"
+	"github.com/hilli/cooklang/parser"
 )
 
-// readRecipeFile reads and parses a recipe file
+// readRecipeFile reads and parses a recipe file with the specified parser mode
 func readRecipeFile(filename string) (*cooklang.Recipe, error) {
 	content, err := os.ReadFile(filename)
 	if err != nil {
-		return nil, fmt.Errorf("error reading file: %w", err)
+		return nil, fmt.Errorf("failed to read file: %w", err)
 	}
 
-	recipe, err := cooklang.ParseString(string(content))
+	// Create parser with appropriate mode
+	p := parser.New()
+	p.ExtendedMode = !canonicalMode // Extended mode is default (canonicalMode=false)
+
+	parsedRecipe, err := p.ParseString(string(content))
 	if err != nil {
-		return nil, fmt.Errorf("error parsing recipe: %w", err)
+		return nil, fmt.Errorf("failed to parse recipe: %w", err)
 	}
 
+	// Convert to cooklang.Recipe type
+	recipe := cooklang.ToCooklangRecipe(parsedRecipe)
 	return recipe, nil
 }
 
