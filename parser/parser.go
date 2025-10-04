@@ -637,6 +637,7 @@ func (p *CooklangParser) parseQuantityAndUnit(l *lexer.Lexer) (string, string, e
 }
 
 // evaluateFraction converts fraction strings like "1/2" to decimal representation "0.5"
+// and mixed fractions like "1 1/2" to "1.5"
 // but preserves original format for fractions with leading zeros like "01/2"
 func (p *CooklangParser) evaluateFraction(quantity string) string {
 	// Check if this looks like a fraction (contains "/")
@@ -644,35 +645,54 @@ func (p *CooklangParser) evaluateFraction(quantity string) string {
 		return quantity
 	}
 
-	// Split by "/" to get numerator and denominator
+	// Trim the string to handle any leading/trailing spaces
+	quantity = strings.TrimSpace(quantity)
+
+	// First, try to parse as a simple fraction (potentially with spaces around the /)
 	parts := strings.Split(quantity, "/")
-	if len(parts) != 2 {
-		return quantity // Not a simple fraction, return as-is
+	if len(parts) == 2 {
+		numeratorStr := strings.TrimSpace(parts[0])
+		denominatorStr := strings.TrimSpace(parts[1])
+
+		// Check if either part has leading zeros - if so, preserve original format
+		if (len(numeratorStr) > 1 && numeratorStr[0] == '0') ||
+			(len(denominatorStr) > 1 && denominatorStr[0] == '0') {
+			return quantity // Preserve fractions with leading zeros
+		}
+
+		// Try to parse the numerator - if it contains spaces, it might be a mixed fraction
+		numeratorParts := strings.Fields(numeratorStr) // Split by whitespace
+		if len(numeratorParts) == 2 {
+			// This looks like a mixed fraction: "1 1/2" becomes numeratorParts=["1", "1"]
+			wholeNumber, err1 := strconv.ParseFloat(numeratorParts[0], 64)
+			numerator, err2 := strconv.ParseFloat(numeratorParts[1], 64)
+			denominator, err3 := strconv.ParseFloat(denominatorStr, 64)
+
+			if err1 == nil && err2 == nil && err3 == nil && denominator != 0 {
+				// It's a mixed fraction
+				result := wholeNumber + (numerator / denominator)
+				return strconv.FormatFloat(result, 'f', -1, 64)
+			}
+		}
+
+		// Try as simple fraction
+		numerator, err1 := strconv.ParseFloat(numeratorStr, 64)
+		denominator, err2 := strconv.ParseFloat(denominatorStr, 64)
+
+		// If either part can't be parsed as a number, return original
+		if err1 != nil || err2 != nil || denominator == 0 {
+			return quantity
+		}
+
+		// Calculate the decimal result
+		result := numerator / denominator
+
+		// Format as string, removing unnecessary trailing zeros
+		return strconv.FormatFloat(result, 'f', -1, 64)
 	}
 
-	// Check if either part has leading zeros - if so, preserve original format
-	numeratorStr := strings.TrimSpace(parts[0])
-	denominatorStr := strings.TrimSpace(parts[1])
-
-	if (len(numeratorStr) > 1 && numeratorStr[0] == '0') ||
-		(len(denominatorStr) > 1 && denominatorStr[0] == '0') {
-		return quantity // Preserve fractions with leading zeros
-	}
-
-	// Parse numerator and denominator
-	numerator, err1 := strconv.ParseFloat(numeratorStr, 64)
-	denominator, err2 := strconv.ParseFloat(denominatorStr, 64)
-
-	// If either part can't be parsed as a number, return original
-	if err1 != nil || err2 != nil || denominator == 0 {
-		return quantity
-	}
-
-	// Calculate the decimal result
-	result := numerator / denominator
-
-	// Format as string, removing unnecessary trailing zeros
-	return strconv.FormatFloat(result, 'f', -1, 64)
+	// Not a simple fraction pattern, return as-is
+	return quantity
 }
 
 // compressTextElements merges consecutive text components into single components

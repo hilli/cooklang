@@ -423,3 +423,109 @@ func TestDebugCookwareWithoutBraces(t *testing.T) {
 		}
 	}
 }
+
+// TestFractionParsing tests that fractions and mixed fractions are correctly converted to decimals
+func TestFractionParsing(t *testing.T) {
+tests := []struct {
+name             string
+input            string
+expectedQuantity string
+expectedUnit     string
+}{
+{
+name:             "Simple fraction 1/2",
+input:            "@gin{1/2%fl oz}",
+expectedQuantity: "0.5",
+expectedUnit:     "fl oz",
+},
+{
+name:             "Simple fraction 1/4",
+input:            "@gin{1/4%fl oz}",
+expectedQuantity: "0.25",
+expectedUnit:     "fl oz",
+},
+{
+name:             "Simple fraction 3/4",
+input:            "@gin{3/4%fl oz}",
+expectedQuantity: "0.75",
+expectedUnit:     "fl oz",
+},
+{
+name:             "Simple fraction with spaces 1 / 2",
+input:            "@gin{1 / 2%fl oz}",
+expectedQuantity: "0.5",
+expectedUnit:     "fl oz",
+},
+{
+name:             "Mixed fraction 1 1/2",
+input:            "@gin{1 1/2%fl oz}",
+expectedQuantity: "1.5",
+expectedUnit:     "fl oz",
+},
+{
+name:             "Mixed fraction 2 1/2",
+input:            "@gin{2 1/2%fl oz}",
+expectedQuantity: "2.5",
+expectedUnit:     "fl oz",
+},
+{
+name:             "Mixed fraction 2 3/4",
+input:            "@gin{2 3/4%fl oz}",
+expectedQuantity: "2.75",
+expectedUnit:     "fl oz",
+},
+{
+name:             "Mixed fraction with spaces 1 1 / 2",
+input:            "@gin{1 1 / 2%fl oz}",
+expectedQuantity: "1.5",
+expectedUnit:     "fl oz",
+},
+{
+name:             "Whole number",
+input:            "@gin{2%fl oz}",
+expectedQuantity: "2",
+expectedUnit:     "fl oz",
+},
+{
+name:             "Decimal",
+input:            "@gin{1.5%fl oz}",
+expectedQuantity: "1.5",
+expectedUnit:     "fl oz",
+},
+}
+
+for _, tt := range tests {
+t.Run(tt.name, func(t *testing.T) {
+parser := New()
+recipe, err := parser.ParseString(tt.input)
+if err != nil {
+t.Fatalf("Failed to parse recipe: %v", err)
+}
+
+if len(recipe.Steps) != 1 {
+t.Fatalf("Expected 1 step, got %d", len(recipe.Steps))
+}
+
+// Find the ingredient component
+var ingredientComp *Component
+for _, comp := range recipe.Steps[0].Components {
+if comp.Type == "ingredient" {
+ingredientComp = &comp
+break
+}
+}
+
+if ingredientComp == nil {
+t.Fatal("No ingredient component found")
+}
+
+if ingredientComp.Quantity != tt.expectedQuantity {
+t.Errorf("Expected quantity %q, got %q", tt.expectedQuantity, ingredientComp.Quantity)
+}
+
+if ingredientComp.Unit != tt.expectedUnit {
+t.Errorf("Expected unit %q, got %q", tt.expectedUnit, ingredientComp.Unit)
+}
+})
+}
+}
