@@ -136,6 +136,11 @@ func (l *Lexer) NextToken() token.Token {
 			tok.Type = token.INT
 			tok.Literal = l.readNumber()
 			return tok
+		} else if unicode.IsNumber(l.ch) {
+			// Handle Unicode fraction characters and other numeric characters
+			tok.Type = token.INT
+			tok.Literal = l.readNumber()
+			return tok
 		} else {
 			tok = newToken(token.ILLEGAL, l.ch)
 		}
@@ -214,7 +219,7 @@ func isIdentifierChar(ch rune) bool {
 
 func (l *Lexer) readNumber() string {
 	position := l.position
-	for isDigit(l.ch) {
+	for isDigit(l.ch) || unicode.IsNumber(l.ch) {
 		l.readChar()
 	}
 	return l.input[position:l.position]
