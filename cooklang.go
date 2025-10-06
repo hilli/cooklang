@@ -277,7 +277,7 @@ func ParseFile(filename string) (*Recipe, error) {
 		return nil, err
 	}
 	recipe := ToCooklangRecipe(parsedRecipe)
-	
+
 	// Auto-detect and add images from filesystem
 	detectedImages := findRecipeImages(filename)
 	if len(detectedImages) > 0 {
@@ -288,7 +288,7 @@ func ParseFile(filename string) (*Recipe, error) {
 			recipe.Metadata["images"] = strings.Join(recipe.Images, ", ")
 		}
 	}
-	
+
 	return recipe, nil
 }
 
@@ -300,10 +300,10 @@ func ParseFile(filename string) (*Recipe, error) {
 func findRecipeImages(cookFilePath string) []string {
 	dir := filepath.Dir(cookFilePath)
 	baseName := strings.TrimSuffix(filepath.Base(cookFilePath), ".cook")
-	
+
 	var images []string
 	extensions := []string{".jpg", ".jpeg", ".png"}
-	
+
 	// Check for base image (e.g., Recipe.jpg)
 	for _, ext := range extensions {
 		imagePath := filepath.Join(dir, baseName+ext)
@@ -311,7 +311,7 @@ func findRecipeImages(cookFilePath string) []string {
 			images = append(images, baseName+ext)
 		}
 	}
-	
+
 	// Check for numbered images (e.g., Recipe-1.jpg, Recipe-2.jpg)
 	// We'll check up to 99 numbered variants
 	for i := 1; i <= 99; i++ {
@@ -329,7 +329,7 @@ func findRecipeImages(cookFilePath string) []string {
 			break
 		}
 	}
-	
+
 	return images
 }
 
@@ -346,7 +346,7 @@ func fileExists(path string) bool {
 func mergeUniqueStrings(slice1, slice2 []string) []string {
 	seen := make(map[string]bool)
 	result := make([]string, 0, len(slice1)+len(slice2))
-	
+
 	// Add all items from slice1
 	for _, item := range slice1 {
 		if item != "" && !seen[item] {
@@ -354,7 +354,7 @@ func mergeUniqueStrings(slice1, slice2 []string) []string {
 			result = append(result, item)
 		}
 	}
-	
+
 	// Add items from slice2 that aren't already present
 	for _, item := range slice2 {
 		if item != "" && !seen[item] {
@@ -362,7 +362,7 @@ func mergeUniqueStrings(slice1, slice2 []string) []string {
 			result = append(result, item)
 		}
 	}
-	
+
 	return result
 }
 

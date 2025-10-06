@@ -291,7 +291,7 @@ func (fe *FrontmatterEditor) extractRecipeBody() string {
 	// Match YAML frontmatter delimited by ---
 	re := regexp.MustCompile(`(?s)^---\n.*?\n---\n`)
 	body := re.ReplaceAllString(fe.content, "")
-	
+
 	// If no frontmatter found, return original content
 	if body == fe.content {
 		// Check if content starts with frontmatter
@@ -304,7 +304,7 @@ func (fe *FrontmatterEditor) extractRecipeBody() string {
 		}
 		return fe.content
 	}
-	
+
 	return strings.TrimLeft(body, "\n")
 }
 
@@ -362,7 +362,7 @@ func (fe *FrontmatterEditor) renderFrontmatter() string {
 			keys = append(keys, k)
 		}
 	}
-	
+
 	// Simple sort
 	for i := 0; i < len(keys); i++ {
 		for j := i + 1; j < len(keys); j++ {
