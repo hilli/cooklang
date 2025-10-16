@@ -5,7 +5,10 @@ go 1.24.3
 // yaml lib used to read the cooklang spec only. Swap to github.com/yaml/go-yaml at some point later this month (/Hilli 2025-06-01)
 require github.com/goccy/go-yaml v1.18.0
 
-require github.com/bcicen/go-units v1.0.5
+require (
+	github.com/bcicen/go-units v1.0.5
+	github.com/spf13/cobra v1.10.1
+)
 
 require (
 	4d63.com/gocheckcompilerdirectives v1.3.0 // indirect
@@ -190,9 +193,8 @@ require (
 	github.com/sourcegraph/go-diff v0.7.0 // indirect
 	github.com/spf13/afero v1.14.0 // indirect
 	github.com/spf13/cast v1.5.0 // indirect
-	github.com/spf13/cobra v1.9.1 // indirect
 	github.com/spf13/jwalterweatherman v1.1.0 // indirect
-	github.com/spf13/pflag v1.0.6 // indirect
+	github.com/spf13/pflag v1.0.10 // indirect
 	github.com/spf13/viper v1.12.0 // indirect
 	github.com/ssgreg/nlreturn/v2 v2.2.1 // indirect
 	github.com/stbenjam/no-sprintf-host-port v0.2.0 // indirect
