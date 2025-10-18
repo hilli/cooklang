@@ -3,9 +3,23 @@ package renderers
 import (
 	"fmt"
 	"strings"
+	"unicode"
 
 	"github.com/hilli/cooklang"
 )
+
+// simpleTitle capitalizes the first letter of each word in a string
+func simpleTitle(s string) string {
+	words := strings.Fields(s)
+	for i, word := range words {
+		if len(word) > 0 {
+			runes := []rune(word)
+			runes[0] = unicode.ToUpper(runes[0])
+			words[i] = string(runes)
+		}
+	}
+	return strings.Join(words, " ")
+}
 
 // MarkdownRenderer renders recipes in Markdown format
 type MarkdownRenderer struct{}
@@ -70,7 +84,7 @@ func (mr MarkdownRenderer) RenderRecipe(recipe *cooklang.Recipe) string {
 				if key != "title" && key != "cuisine" && key != "date" && key != "description" &&
 					key != "difficulty" && key != "prep_time" && key != "total_time" &&
 					key != "author" && key != "servings" && key != "tags" && key != "images" && key != "image" {
-					result.WriteString(fmt.Sprintf("**%s:** %s\n\n", strings.Title(strings.ReplaceAll(key, "_", " ")), value))
+					result.WriteString(fmt.Sprintf("**%s:** %s\n\n", simpleTitle(strings.ReplaceAll(key, "_", " ")), value))
 				}
 			}
 		}

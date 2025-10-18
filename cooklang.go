@@ -12,31 +12,57 @@ import (
 	"github.com/hilli/cooklang/parser"
 )
 
+// Recipe represents a parsed Cooklang recipe with its metadata and step-by-step instructions.
+// The Recipe struct provides access to all recipe information including ingredients, cookware,
+// timers, and cooking instructions organized as a linked list of steps.
+//
+// Recipes can be created by parsing Cooklang files using ParseFile, ParseString, or ParseBytes.
+//
+// Example:
+//
+//	recipe, err := cooklang.ParseFile("lasagna.cook")
+//	if err != nil {
+//	    log.Fatal(err)
+//	}
+//	fmt.Println(recipe.Title)
+//	ingredients := recipe.GetIngredients()
 type Recipe struct {
-	Title       string    `json:"title,omitempty"`
-	Cuisine     string    `json:"cuisine,omitempty"`
-	Date        time.Time `json:"date,omitempty"`
-	Description string    `json:"description,omitempty"`
-	Difficulty  string    `json:"difficulty,omitempty"`
-	PrepTime    string    `json:"prep_time,omitempty"`
-	TotalTime   string    `json:"total_time,omitempty"`
-	Metadata    Metadata  `json:"metadata,omitempty"`
-	Author      string    `json:"author,omitempty"`
-	Images      []string  `json:"images,omitempty"`
-	Servings    float32   `json:"servings,omitempty"`
-	Tags        []string  `json:"tags,omitempty"`
-	FirstStep   *Step     `json:"first_step,omitempty"`
+	Title       string    `json:"title,omitempty"`       // Recipe title from frontmatter
+	Cuisine     string    `json:"cuisine,omitempty"`     // Cuisine type (e.g., "Italian", "Mexican")
+	Date        time.Time `json:"date,omitempty"`        // Recipe date in YYYY-MM-DD format
+	Description string    `json:"description,omitempty"` // Brief recipe description
+	Difficulty  string    `json:"difficulty,omitempty"`  // Difficulty level (e.g., "easy", "medium", "hard")
+	PrepTime    string    `json:"prep_time,omitempty"`   // Preparation time (e.g., "15 minutes")
+	TotalTime   string    `json:"total_time,omitempty"`  // Total cooking time
+	Metadata    Metadata  `json:"metadata,omitempty"`    // Additional custom metadata fields
+	Author      string    `json:"author,omitempty"`      // Recipe author name
+	Images      []string  `json:"images,omitempty"`      // Image filenames associated with the recipe
+	Servings    float32   `json:"servings,omitempty"`    // Number of servings this recipe makes
+	Tags        []string  `json:"tags,omitempty"`        // Recipe tags for categorization
+	FirstStep   *Step     `json:"first_step,omitempty"`  // First step in the linked list of recipe steps
 	CooklangRenderable
 }
 
+// CooklangRenderable provides rendering capabilities for recipe components.
+// It allows custom rendering functions to be attached to recipes and their components.
 type CooklangRenderable struct {
-	RenderFunc func() string `json:"-"`
+	RenderFunc func() string `json:"-"` // Custom rendering function
 }
 
+// CooklangRecipe is a marker interface for recipe types.
 type CooklangRecipe interface {
 	isRecipe()
 }
 
+// Metadata stores arbitrary key-value pairs for recipe metadata not covered by structured fields.
+// This allows recipes to include custom fields beyond the standard ones.
+//
+// Example:
+//
+//	metadata := Metadata{
+//	    "source": "Grandma's cookbook",
+//	    "category": "dessert",
+//	}
 type Metadata map[string]string
 
 // UnitSystem defines supported unit systems for easy conversion
@@ -167,16 +193,23 @@ func getCookingUnitType(unit string) string {
 	return ""
 }
 
+// StepComponent represents a component within a recipe step (ingredient, instruction, timer, or cookware).
+// Components are organized as a linked list within each step, allowing iteration through the sequence of actions.
 type StepComponent interface {
-	isStepComponent()
-	Render() string
-	SetNext(StepComponent)
-	GetNext() StepComponent
+	isStepComponent()                   // Marker method
+	Render() string                     // Renders the component as Cooklang syntax
+	SetNext(StepComponent)              // Sets the next component in the linked list
+	GetNext() StepComponent             // Gets the next component in the linked list
 }
 
+// Step represents a single step in a recipe's instructions.
+// Each step contains a linked list of components (ingredients, cookware, timers, text instructions)
+// and a link to the next step.
+//
+// Steps are traversed by following the NextStep pointer to iterate through the recipe's instructions.
 type Step struct {
-	FirstComponent StepComponent `json:"first_component,omitempty"`
-	NextStep       *Step         `json:"next_step,omitempty"`
+	FirstComponent StepComponent `json:"first_component,omitempty"` // First component in this step
+	NextStep       *Step         `json:"next_step,omitempty"`       // Next step in the recipe
 	CooklangRenderable
 }
 
@@ -185,6 +218,8 @@ func (Timer) isStepComponent()       {}
 func (Cookware) isStepComponent()    {}
 func (Ingredient) isStepComponent()  {}
 
+// Render returns the Cooklang syntax representation of this ingredient.
+// Examples: "@flour{500%g}", "@salt{}", "@milk{2%cups}(cold)"
 func (i Ingredient) Render() string {
 	var result string
 	if i.Quantity > 0 {
@@ -201,10 +236,13 @@ func (i Ingredient) Render() string {
 	return result
 }
 
+// Render returns the plain text instruction.
 func (inst Instruction) Render() string {
 	return inst.Text
 }
 
+// Render returns the Cooklang syntax representation of this timer.
+// Examples: "~{10%minutes}", "~boil{15%min}"
 func (t Timer) Render() string {
 	var result string
 	if t.Name != "" {
@@ -218,6 +256,8 @@ func (t Timer) Render() string {
 	return result
 }
 
+// Render returns the Cooklang syntax representation of this cookware.
+// Examples: "#pot{}", "#bowl{2}", "#oven{}(preheated)"
 func (c Cookware) Render() string {
 	var result string
 	if c.Quantity > 1 {
@@ -231,41 +271,78 @@ func (c Cookware) Render() string {
 	return result
 }
 
+// Ingredient represents a recipe ingredient with quantity, unit, and optional annotations.
+// Ingredients support unit conversion and consolidation for shopping lists.
+//
+// Example Cooklang syntax: @flour{500%g}, @salt{}, @milk{2%cups}
+//
+// The Quantity field uses -1 to represent "some" (unspecified amount).
 type Ingredient struct {
-	Name           string        `json:"name,omitempty"`
-	Quantity       float32       `json:"quantity,omitempty"`
-	Unit           string        `json:"unit,omitempty"`
-	TypedUnit      *units.Unit   `json:"typed_unit,omitempty"`
-	Subinstruction string        `json:"value,omitempty"`
-	Annotation     string        `json:"annotation,omitempty"`
-	NextComponent  StepComponent `json:"next_component,omitempty"`
+	Name           string        `json:"name,omitempty"`           // Ingredient name (e.g., "flour", "sugar")
+	Quantity       float32       `json:"quantity,omitempty"`       // Amount (-1 means "some", 0 means none specified)
+	Unit           string        `json:"unit,omitempty"`           // Unit of measurement (e.g., "g", "cup", "tbsp")
+	TypedUnit      *units.Unit   `json:"typed_unit,omitempty"`     // Typed unit for conversion operations
+	Subinstruction string        `json:"value,omitempty"`          // Additional preparation instructions
+	Annotation     string        `json:"annotation,omitempty"`     // Optional annotation (e.g., "finely chopped")
+	NextComponent  StepComponent `json:"next_component,omitempty"` // Next component in the step
 	CooklangRenderable
 }
 
+// Instruction represents a text instruction within a recipe step.
+// This is plain text that provides cooking directions.
 type Instruction struct {
-	Text          string        `json:"text,omitempty"`
-	NextComponent StepComponent `json:"next_component,omitempty"`
+	Text          string        `json:"text,omitempty"`           // Instruction text
+	NextComponent StepComponent `json:"next_component,omitempty"` // Next component in the step
 	CooklangRenderable
 }
 
+// Timer represents a duration timer in a recipe step.
+// Timers specify how long to perform an action.
+//
+// Example Cooklang syntax: ~{10%minutes}, ~boil{15%min}
 type Timer struct {
-	Duration      string        `json:"duration,omitempty"`
-	Name          string        `json:"name,omitempty"`
-	Text          string        `json:"text,omitempty"`
-	Unit          string        `json:"unit,omitempty"`
-	Annotation    string        `json:"annotation,omitempty"`
-	NextComponent StepComponent `json:"next_component,omitempty"`
+	Duration      string        `json:"duration,omitempty"`       // Duration value (e.g., "10")
+	Name          string        `json:"name,omitempty"`           // Timer name/description (e.g., "boil", "rest")
+	Text          string        `json:"text,omitempty"`           // Full timer text
+	Unit          string        `json:"unit,omitempty"`           // Time unit (e.g., "minutes", "hours")
+	Annotation    string        `json:"annotation,omitempty"`     // Optional annotation
+	NextComponent StepComponent `json:"next_component,omitempty"` // Next component in the step
 	CooklangRenderable
 }
 
+// Cookware represents a cooking utensil or equipment needed for a recipe.
+//
+// Example Cooklang syntax: #pot{}, #bowl{2}, #oven{}
 type Cookware struct {
-	Name          string        `json:"name,omitempty"`
-	Quantity      int           `json:"quantity,omitempty"`
-	Annotation    string        `json:"annotation,omitempty"`
-	NextComponent StepComponent `json:"next_component,omitempty"`
+	Name          string        `json:"name,omitempty"`           // Cookware name (e.g., "pot", "bowl", "oven")
+	Quantity      int           `json:"quantity,omitempty"`       // Number of items needed (default 1)
+	Annotation    string        `json:"annotation,omitempty"`     // Optional annotation (e.g., "large", "non-stick")
+	NextComponent StepComponent `json:"next_component,omitempty"` // Next component in the step
 	CooklangRenderable
 }
 
+// ParseFile reads and parses a Cooklang recipe file, returning a Recipe object.
+// It automatically detects and includes associated image files matching the recipe filename.
+//
+// Image detection looks for files with the same base name:
+//   - Recipe.cook → Recipe.jpg, Recipe.png, Recipe.jpeg
+//   - Recipe.cook → Recipe-1.jpg, Recipe-2.png, etc. (numbered variants)
+//
+// Parameters:
+//   - filename: Path to the .cook file to parse
+//
+// Returns:
+//   - *Recipe: The parsed recipe with all metadata, steps, and detected images
+//   - error: Any error encountered during file reading or parsing
+//
+// Example:
+//
+//	recipe, err := cooklang.ParseFile("recipes/lasagna.cook")
+//	if err != nil {
+//	    log.Fatal(err)
+//	}
+//	fmt.Printf("Recipe: %s\n", recipe.Title)
+//	fmt.Printf("Servings: %.0f\n", recipe.Servings)
 func ParseFile(filename string) (*Recipe, error) {
 	content, err := os.ReadFile(filename)
 	if err != nil {
@@ -366,6 +443,22 @@ func mergeUniqueStrings(slice1, slice2 []string) []string {
 	return result
 }
 
+// ParseBytes parses Cooklang recipe content from a byte slice.
+// This is useful for parsing recipes from memory, HTTP responses, or other byte sources.
+//
+// Unlike ParseFile, this function does not perform image detection since no filename is available.
+//
+// Parameters:
+//   - content: The raw Cooklang recipe content as bytes
+//
+// Returns:
+//   - *Recipe: The parsed recipe with all metadata and steps
+//   - error: Any error encountered during parsing
+//
+// Example:
+//
+//	content := []byte("---\ntitle: Quick Pasta\n---\n\nBoil @water{2%L} and add @pasta{100%g}.")
+//	recipe, err := cooklang.ParseBytes(content)
 func ParseBytes(content []byte) (*Recipe, error) {
 	p := parser.New()
 	parsedRecipe, err := p.ParseBytes(content)
@@ -375,6 +468,20 @@ func ParseBytes(content []byte) (*Recipe, error) {
 	return ToCooklangRecipe(parsedRecipe), nil
 }
 
+// ParseString parses Cooklang recipe content from a string.
+// This is a convenience wrapper around ParseBytes for string input.
+//
+// Parameters:
+//   - content: The Cooklang recipe content as a string
+//
+// Returns:
+//   - *Recipe: The parsed recipe with all metadata and steps
+//   - error: Any error encountered during parsing
+//
+// Example:
+//
+//	content := "---\ntitle: Quick Pasta\n---\n\nBoil @water{2%L}."
+//	recipe, err := cooklang.ParseString(content)
 func ParseString(content string) (*Recipe, error) {
 	p := parser.New()
 	recipe, err := p.ParseString(content)
@@ -400,7 +507,11 @@ func createTypedUnit(unitStr string) *units.Unit {
 	return &newUnit
 }
 
-// ToCooklangRecipe converts a parser.Recipe to a cooklang.Recipe
+// ToCooklangRecipe converts a parser.Recipe to a cooklang.Recipe.
+// This is the internal function that transforms the parser's output into the high-level Recipe structure
+// with all metadata fields populated and step components organized as linked lists.
+//
+// Most users should use ParseFile, ParseString, or ParseBytes instead of calling this directly.
 func ToCooklangRecipe(pRecipe *parser.Recipe) *Recipe {
 	recipe := &Recipe{}
 	// Copy metadata to recipe fields
@@ -526,6 +637,14 @@ func ToCooklangRecipe(pRecipe *parser.Recipe) *Recipe {
 	return recipe
 }
 
+// Render returns a human-readable representation of the recipe.
+// If a custom renderer has been set via SetRenderer or SetRendererFunc, it will be used.
+// Otherwise, a default text format is used showing metadata, ingredients, and steps.
+//
+// Example:
+//
+//	recipe, _ := cooklang.ParseFile("lasagna.cook")
+//	fmt.Println(recipe.Render())
 func (r *Recipe) Render() string {
 	if r.RenderFunc != nil {
 		return r.RenderFunc()
@@ -572,7 +691,24 @@ func (r *Recipe) Render() string {
 	return result
 }
 
-// ConvertTo converts the ingredient to a different unit if possible
+// ConvertTo converts the ingredient to a different unit if possible.
+// The conversion uses either custom cooking unit conversions (for common units like cups, tbsp, oz)
+// or the go-units library for scientific units.
+//
+// Parameters:
+//   - targetUnitStr: The target unit to convert to (e.g., "g", "cup", "ml")
+//
+// Returns:
+//   - *Ingredient: A new ingredient with the converted quantity and unit
+//   - error: Error if conversion is not possible (incompatible units, "some" quantity, etc.)
+//
+// Example:
+//
+//	ingredient := &Ingredient{Name: "flour", Quantity: 2, Unit: "cup"}
+//	converted, err := ingredient.ConvertTo("g")
+//	if err == nil {
+//	    fmt.Printf("%.0f %s\n", converted.Quantity, converted.Unit) // "473 g"
+//	}
 func (i *Ingredient) ConvertTo(targetUnitStr string) (*Ingredient, error) {
 	if i.TypedUnit == nil {
 		return nil, fmt.Errorf("ingredient has no typed unit")
@@ -625,7 +761,22 @@ func (i *Ingredient) ConvertTo(targetUnitStr string) (*Ingredient, error) {
 	return converted, nil
 }
 
-// CanConvertTo checks if the ingredient can be converted to the target unit
+// CanConvertTo checks if the ingredient can be converted to the target unit.
+// This allows validating conversions before attempting them.
+//
+// Parameters:
+//   - targetUnitStr: The unit to check conversion compatibility with
+//
+// Returns:
+//   - bool: true if conversion is possible, false otherwise
+//
+// Example:
+//
+//	ingredient := &Ingredient{Name: "water", Quantity: 250, Unit: "ml"}
+//	if ingredient.CanConvertTo("cup") {
+//	    converted, _ := ingredient.ConvertTo("cup")
+//	    fmt.Printf("Can convert: %.2f %s\n", converted.Quantity, converted.Unit)
+//	}
 func (i *Ingredient) CanConvertTo(targetUnitStr string) bool {
 	if i.TypedUnit == nil {
 		return false
@@ -652,7 +803,19 @@ func (i *Ingredient) CanConvertTo(targetUnitStr string) bool {
 	return err == nil
 }
 
-// GetUnitType returns the unit's quantity type (e.g., "mass", "volume", "length") if available
+// GetUnitType returns the ingredient's unit quantity type (e.g., "mass", "volume", "length").
+// This helps categorize ingredients and determine valid conversions.
+//
+// Returns:
+//   - string: The quantity type ("mass", "volume", "length", "temperature", "time", "energy", or "")
+//
+// Example:
+//
+//	ingredient := &Ingredient{Name: "flour", Quantity: 500, Unit: "g"}
+//	fmt.Println(ingredient.GetUnitType()) // "mass"
+//
+//	ingredient2 := &Ingredient{Name: "milk", Quantity: 2, Unit: "cup"}
+//	fmt.Println(ingredient2.GetUnitType()) // "volume"
 func (i *Ingredient) GetUnitType() string {
 	if i.TypedUnit == nil {
 		return ""
@@ -718,19 +881,38 @@ func (c *Cookware) GetNext() StepComponent {
 	return c.NextComponent
 }
 
-// IngredientList represents a collection of ingredients with unit consolidation capabilities
+// IngredientList represents a collection of ingredients with unit consolidation capabilities.
+// It provides methods for grouping, converting, and consolidating ingredients for shopping lists
+// and recipe scaling operations.
 type IngredientList struct {
-	Ingredients []*Ingredient
+	Ingredients []*Ingredient // The list of ingredients
 }
 
-// NewIngredientList creates a new ingredient list
+// NewIngredientList creates a new empty ingredient list.
+//
+// Returns:
+//   - *IngredientList: A new ingredient list ready for use
+//
+// Example:
+//
+//	list := cooklang.NewIngredientList()
+//	list.Add(&cooklang.Ingredient{Name: "flour", Quantity: 500, Unit: "g"})
 func NewIngredientList() *IngredientList {
 	return &IngredientList{
 		Ingredients: make([]*Ingredient, 0),
 	}
 }
 
-// Add adds an ingredient to the list
+// Add adds an ingredient to the list.
+//
+// Parameters:
+//   - ingredient: The ingredient to add
+//
+// Example:
+//
+//	list := cooklang.NewIngredientList()
+//	list.Add(&cooklang.Ingredient{Name: "sugar", Quantity: 100, Unit: "g"})
+//	list.Add(&cooklang.Ingredient{Name: "flour", Quantity: 2, Unit: "cup"})
 func (il *IngredientList) Add(ingredient *Ingredient) {
 	il.Ingredients = append(il.Ingredients, ingredient)
 }
@@ -746,7 +928,29 @@ func (il *IngredientList) GetIngredientsByName(name string) []*Ingredient {
 	return result
 }
 
-// ConsolidateByName consolidates ingredients with the same name, converting to a common unit when possible
+// ConsolidateByName consolidates ingredients with the same name, converting to a common unit when possible.
+// This is useful for creating shopping lists where multiple mentions of the same ingredient
+// should be combined into a single entry.
+//
+// If targetUnit is empty, the method attempts to find a common unit from the ingredients.
+// If targetUnit is specified, all compatible ingredients are converted to that unit before consolidation.
+//
+// Ingredients with "some" quantity (-1) or incompatible units are kept separate.
+//
+// Parameters:
+//   - targetUnit: The unit to convert all ingredients to (empty string to auto-detect)
+//
+// Returns:
+//   - *IngredientList: A new list with consolidated ingredients
+//   - error: Any error encountered during consolidation
+//
+// Example:
+//
+//	list := cooklang.NewIngredientList()
+//	list.Add(&cooklang.Ingredient{Name: "flour", Quantity: 100, Unit: "g"})
+//	list.Add(&cooklang.Ingredient{Name: "flour", Quantity: 150, Unit: "g"})
+//	consolidated, _ := list.ConsolidateByName("")
+//	// consolidated will have one "flour" entry with 250g
 func (il *IngredientList) ConsolidateByName(targetUnit string) (*IngredientList, error) {
 	consolidated := NewIngredientList()
 	ingredientMap := make(map[string][]*Ingredient)
@@ -877,7 +1081,19 @@ func (il *IngredientList) ToMap() map[string]string {
 	return result
 }
 
-// GetIngredients returns all ingredients from a recipe
+// GetIngredients returns all ingredients from a recipe, extracted from all steps.
+// This traverses the recipe's linked list structure to collect every ingredient mention.
+//
+// Returns:
+//   - *IngredientList: A list containing all ingredients in order of appearance
+//
+// Example:
+//
+//	recipe, _ := cooklang.ParseFile("lasagna.cook")
+//	ingredients := recipe.GetIngredients()
+//	for _, ing := range ingredients.Ingredients {
+//	    fmt.Printf("%s: %.1f %s\n", ing.Name, ing.Quantity, ing.Unit)
+//	}
 func (r *Recipe) GetIngredients() *IngredientList {
 	ingredientList := NewIngredientList()
 
@@ -897,7 +1113,18 @@ func (r *Recipe) GetIngredients() *IngredientList {
 	return ingredientList
 }
 
-// GetCookware returns all cookware from a recipe
+// GetCookware returns all cookware items from a recipe, extracted from all steps.
+//
+// Returns:
+//   - []*Cookware: A slice containing all cookware items in order of appearance
+//
+// Example:
+//
+//	recipe, _ := cooklang.ParseFile("pasta.cook")
+//	cookware := recipe.GetCookware()
+//	for _, cw := range cookware {
+//	    fmt.Printf("%s (qty: %d)\n", cw.Name, cw.Quantity)
+//	}
 func (r *Recipe) GetCookware() []*Cookware {
 	var cookware []*Cookware
 
@@ -1027,17 +1254,47 @@ func (r *Recipe) GetShoppingListInSystem(system UnitSystem) (map[string]string, 
 	return consolidated.ToMap(), nil
 }
 
-// GetMetricShoppingList returns a shopping list with all ingredients in metric units
+// GetMetricShoppingList returns a shopping list with all ingredients converted to metric units.
+// This is a convenience method for GetShoppingListInSystem(UnitSystemMetric).
+//
+// Returns:
+//   - map[string]string: A map of ingredient names to quantities (e.g., "flour": "500 g")
+//   - error: Any error encountered during conversion
+//
+// Example:
+//
+//	recipe, _ := cooklang.ParseFile("cookies.cook")
+//	shoppingList, err := recipe.GetMetricShoppingList()
+//	if err == nil {
+//	    for ingredient, amount := range shoppingList {
+//	        fmt.Printf("%s: %s\n", ingredient, amount)
+//	    }
+//	}
 func (r *Recipe) GetMetricShoppingList() (map[string]string, error) {
 	return r.GetShoppingListInSystem(UnitSystemMetric)
 }
 
-// GetUSShoppingList returns a shopping list with all ingredients in US units
+// GetUSShoppingList returns a shopping list with all ingredients converted to US customary units.
+// Common conversions include: cups, tablespoons, teaspoons, ounces, pounds.
+//
+// Returns:
+//   - map[string]string: A map of ingredient names to quantities (e.g., "flour": "2 cup")
+//   - error: Any error encountered during conversion
+//
+// Example:
+//
+//	recipe, _ := cooklang.ParseFile("cookies.cook")
+//	shoppingList, err := recipe.GetUSShoppingList()
 func (r *Recipe) GetUSShoppingList() (map[string]string, error) {
 	return r.GetShoppingListInSystem(UnitSystemUS)
 }
 
-// GetImperialShoppingList returns a shopping list with all ingredients in Imperial units
+// GetImperialShoppingList returns a shopping list with all ingredients converted to Imperial units.
+// Common conversions include: pints, fluid ounces, pounds, ounces.
+//
+// Returns:
+//   - map[string]string: A map of ingredient names to quantities
+//   - error: Any error encountered during conversion
 func (r *Recipe) GetImperialShoppingList() (map[string]string, error) {
 	return r.GetShoppingListInSystem(UnitSystemImperial)
 }
@@ -1066,14 +1323,34 @@ func (r *Recipe) GetCollectedIngredientsMap() (map[string]string, error) {
 	return collectedIngredients.ToMap(), nil
 }
 
-// ShoppingList represents a consolidated list of ingredients from multiple recipes
+// ShoppingList represents a consolidated list of ingredients from multiple recipes.
+// It combines ingredients across recipes and provides a unified shopping list with recipe attribution.
 type ShoppingList struct {
-	Ingredients *IngredientList `json:"ingredients"`
-	Recipes     []string        `json:"recipes,omitempty"` // List of recipe titles
+	Ingredients *IngredientList `json:"ingredients"`          // Consolidated ingredient list
+	Recipes     []string        `json:"recipes,omitempty"`   // List of recipe titles included
 }
 
-// CreateShoppingList creates a consolidated shopping list from multiple recipes
-// All ingredients from all recipes are combined and consolidated by name
+// CreateShoppingList creates a consolidated shopping list from multiple recipes.
+// All ingredients from all recipes are combined and consolidated by name, automatically
+// converting compatible units and summing quantities.
+//
+// Parameters:
+//   - recipes: Variable number of Recipe pointers to include in the shopping list
+//
+// Returns:
+//   - *ShoppingList: A shopping list with consolidated ingredients
+//   - error: Any error encountered during consolidation
+//
+// Example:
+//
+//	recipe1, _ := cooklang.ParseFile("pasta.cook")
+//	recipe2, _ := cooklang.ParseFile("salad.cook")
+//	shoppingList, err := cooklang.CreateShoppingList(recipe1, recipe2)
+//	if err == nil {
+//	    for name, amount := range shoppingList.ToMap() {
+//	        fmt.Printf("%s: %s\n", name, amount)
+//	    }
+//	}
 func CreateShoppingList(recipes ...*Recipe) (*ShoppingList, error) {
 	if len(recipes) == 0 {
 		return &ShoppingList{
@@ -1149,8 +1426,21 @@ func (sl *ShoppingList) ToMap() map[string]string {
 	return sl.Ingredients.ToMap()
 }
 
-// Scale scales all ingredients in the shopping list by the given multiplier
-// This is useful when adjusting recipe servings or batch cooking
+// Scale scales all ingredients in the shopping list by the given multiplier.
+// This is useful when adjusting recipe servings or batch cooking.
+// Ingredients with "some" quantity (-1) are not scaled.
+//
+// Parameters:
+//   - multiplier: The scaling factor (e.g., 2.0 for double, 0.5 for half)
+//
+// Returns:
+//   - *ShoppingList: A new shopping list with scaled quantities
+//
+// Example:
+//
+//	shoppingList, _ := cooklang.CreateShoppingList(recipe)
+//	doubled := shoppingList.Scale(2.0)  // Double all quantities
+//	halved := shoppingList.Scale(0.5)   // Half all quantities
 func (sl *ShoppingList) Scale(multiplier float64) *ShoppingList {
 	if sl.Ingredients == nil || len(sl.Ingredients.Ingredients) == 0 {
 		return sl

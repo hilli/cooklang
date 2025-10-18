@@ -13,7 +13,9 @@ func TestFindRecipeImages(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to create temp dir: %v", err)
 	}
-	defer os.RemoveAll(tmpDir)
+	defer func() {
+		_ = os.RemoveAll(tmpDir)
+	}()
 
 	// Test case 1: Single image with same name
 	t.Run("single_matching_image", func(t *testing.T) {
@@ -21,8 +23,8 @@ func TestFindRecipeImages(t *testing.T) {
 		imageFile := filepath.Join(tmpDir, "TestRecipe.jpg")
 
 		// Create the files
-		os.WriteFile(cookFile, []byte("Test recipe"), 0644)
-		os.WriteFile(imageFile, []byte("fake image"), 0644)
+		_ = os.WriteFile(cookFile, []byte("Test recipe"), 0644)
+		_ = os.WriteFile(imageFile, []byte("fake image"), 0644)
 
 		images := findRecipeImages(cookFile)
 		if len(images) != 1 {
@@ -33,8 +35,8 @@ func TestFindRecipeImages(t *testing.T) {
 		}
 
 		// Cleanup
-		os.Remove(cookFile)
-		os.Remove(imageFile)
+		_ = os.Remove(cookFile)
+		_ = os.Remove(imageFile)
 	})
 
 	// Test case 2: Multiple extensions
@@ -43,9 +45,9 @@ func TestFindRecipeImages(t *testing.T) {
 		jpgFile := filepath.Join(tmpDir, "MultiExt.jpg")
 		pngFile := filepath.Join(tmpDir, "MultiExt.png")
 
-		os.WriteFile(cookFile, []byte("Test"), 0644)
-		os.WriteFile(jpgFile, []byte("jpg"), 0644)
-		os.WriteFile(pngFile, []byte("png"), 0644)
+		_ = os.WriteFile(cookFile, []byte("Test"), 0644)
+		_ = os.WriteFile(jpgFile, []byte("jpg"), 0644)
+		_ = os.WriteFile(pngFile, []byte("png"), 0644)
 
 		images := findRecipeImages(cookFile)
 		if len(images) != 2 {
@@ -68,9 +70,9 @@ func TestFindRecipeImages(t *testing.T) {
 		}
 
 		// Cleanup
-		os.Remove(cookFile)
-		os.Remove(jpgFile)
-		os.Remove(pngFile)
+		_ = os.Remove(cookFile)
+		_ = os.Remove(jpgFile)
+		_ = os.Remove(pngFile)
 	})
 
 	// Test case 3: Numbered images
@@ -80,10 +82,10 @@ func TestFindRecipeImages(t *testing.T) {
 		image2 := filepath.Join(tmpDir, "Numbered-2.png")
 		image3 := filepath.Join(tmpDir, "Numbered-3.jpeg")
 
-		os.WriteFile(cookFile, []byte("Test"), 0644)
-		os.WriteFile(image1, []byte("img1"), 0644)
-		os.WriteFile(image2, []byte("img2"), 0644)
-		os.WriteFile(image3, []byte("img3"), 0644)
+		_ = os.WriteFile(cookFile, []byte("Test"), 0644)
+		_ = os.WriteFile(image1, []byte("img1"), 0644)
+		_ = os.WriteFile(image2, []byte("img2"), 0644)
+		_ = os.WriteFile(image3, []byte("img3"), 0644)
 
 		images := findRecipeImages(cookFile)
 		if len(images) != 3 {
@@ -91,10 +93,10 @@ func TestFindRecipeImages(t *testing.T) {
 		}
 
 		// Cleanup
-		os.Remove(cookFile)
-		os.Remove(image1)
-		os.Remove(image2)
-		os.Remove(image3)
+		_ = os.Remove(cookFile)
+		_ = os.Remove(image1)
+		_ = os.Remove(image2)
+		_ = os.Remove(image3)
 	})
 
 	// Test case 4: Mixed base and numbered images
@@ -104,10 +106,10 @@ func TestFindRecipeImages(t *testing.T) {
 		image1 := filepath.Join(tmpDir, "Mixed-1.png")
 		image2 := filepath.Join(tmpDir, "Mixed-2.jpg")
 
-		os.WriteFile(cookFile, []byte("Test"), 0644)
-		os.WriteFile(baseImage, []byte("base"), 0644)
-		os.WriteFile(image1, []byte("img1"), 0644)
-		os.WriteFile(image2, []byte("img2"), 0644)
+		_ = os.WriteFile(cookFile, []byte("Test"), 0644)
+		_ = os.WriteFile(baseImage, []byte("base"), 0644)
+		_ = os.WriteFile(image1, []byte("img1"), 0644)
+		_ = os.WriteFile(image2, []byte("img2"), 0644)
 
 		images := findRecipeImages(cookFile)
 		if len(images) != 3 {
@@ -120,16 +122,16 @@ func TestFindRecipeImages(t *testing.T) {
 		}
 
 		// Cleanup
-		os.Remove(cookFile)
-		os.Remove(baseImage)
-		os.Remove(image1)
-		os.Remove(image2)
+		_ = os.Remove(cookFile)
+		_ = os.Remove(baseImage)
+		_ = os.Remove(image1)
+		_ = os.Remove(image2)
 	})
 
 	// Test case 5: No images
 	t.Run("no_images", func(t *testing.T) {
 		cookFile := filepath.Join(tmpDir, "NoImages.cook")
-		os.WriteFile(cookFile, []byte("Test"), 0644)
+		_ = os.WriteFile(cookFile, []byte("Test"), 0644)
 
 		images := findRecipeImages(cookFile)
 		if len(images) != 0 {
@@ -137,7 +139,7 @@ func TestFindRecipeImages(t *testing.T) {
 		}
 
 		// Cleanup
-		os.Remove(cookFile)
+		_ = os.Remove(cookFile)
 	})
 
 	// Test case 6: Gap in numbering (should stop at gap)
@@ -146,9 +148,9 @@ func TestFindRecipeImages(t *testing.T) {
 		image1 := filepath.Join(tmpDir, "Gap-1.jpg")
 		image3 := filepath.Join(tmpDir, "Gap-3.jpg") // Gap at 2
 
-		os.WriteFile(cookFile, []byte("Test"), 0644)
-		os.WriteFile(image1, []byte("img1"), 0644)
-		os.WriteFile(image3, []byte("img3"), 0644)
+		_ = os.WriteFile(cookFile, []byte("Test"), 0644)
+		_ = os.WriteFile(image1, []byte("img1"), 0644)
+		_ = os.WriteFile(image3, []byte("img3"), 0644)
 
 		images := findRecipeImages(cookFile)
 		// Should only find Gap-1.jpg, stop at the gap
@@ -160,9 +162,9 @@ func TestFindRecipeImages(t *testing.T) {
 		}
 
 		// Cleanup
-		os.Remove(cookFile)
-		os.Remove(image1)
-		os.Remove(image3)
+		_ = os.Remove(cookFile)
+		_ = os.Remove(image1)
+		_ = os.Remove(image3)
 	})
 }
 
@@ -172,7 +174,9 @@ func TestParseFileWithImageDetection(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to create temp dir: %v", err)
 	}
-	defer os.RemoveAll(tmpDir)
+	defer func() {
+		_ = os.RemoveAll(tmpDir)
+	}()
 
 	// Test case 1: Auto-detect images with no frontmatter
 	t.Run("auto_detect_no_frontmatter", func(t *testing.T) {
@@ -183,8 +187,8 @@ func TestParseFileWithImageDetection(t *testing.T) {
 
 Heat for ~{10%minutes}.`
 
-		os.WriteFile(cookFile, []byte(recipeContent), 0644)
-		os.WriteFile(imageFile, []byte("fake image"), 0644)
+		_ = os.WriteFile(cookFile, []byte(recipeContent), 0644)
+		_ = os.WriteFile(imageFile, []byte("fake image"), 0644)
 
 		recipe, err := ParseFile(cookFile)
 		if err != nil {
@@ -204,8 +208,8 @@ Heat for ~{10%minutes}.`
 		}
 
 		// Cleanup
-		os.Remove(cookFile)
-		os.Remove(imageFile)
+		_ = os.Remove(cookFile)
+		_ = os.Remove(imageFile)
 	})
 
 	// Test case 2: Merge with existing frontmatter images
@@ -221,9 +225,9 @@ images: existing.jpg
 
 Add @water{2%cups}.`
 
-		os.WriteFile(cookFile, []byte(recipeContent), 0644)
-		os.WriteFile(image1File, []byte("img1"), 0644)
-		os.WriteFile(image2File, []byte("img2"), 0644)
+		_ = os.WriteFile(cookFile, []byte(recipeContent), 0644)
+		_ = os.WriteFile(image1File, []byte("img1"), 0644)
+		_ = os.WriteFile(image2File, []byte("img2"), 0644)
 
 		recipe, err := ParseFile(cookFile)
 		if err != nil {
@@ -252,9 +256,9 @@ Add @water{2%cups}.`
 		}
 
 		// Cleanup
-		os.Remove(cookFile)
-		os.Remove(image1File)
-		os.Remove(image2File)
+		_ = os.Remove(cookFile)
+		_ = os.Remove(image1File)
+		_ = os.Remove(image2File)
 	})
 
 	// Test case 3: Avoid duplicates
@@ -269,8 +273,8 @@ images: Duplicate.jpg
 
 Add @water{2%cups}.`
 
-		os.WriteFile(cookFile, []byte(recipeContent), 0644)
-		os.WriteFile(imageFile, []byte("img"), 0644)
+		_ = os.WriteFile(cookFile, []byte(recipeContent), 0644)
+		_ = os.WriteFile(imageFile, []byte("img"), 0644)
 
 		recipe, err := ParseFile(cookFile)
 		if err != nil {
@@ -286,8 +290,8 @@ Add @water{2%cups}.`
 		}
 
 		// Cleanup
-		os.Remove(cookFile)
-		os.Remove(imageFile)
+		_ = os.Remove(cookFile)
+		_ = os.Remove(imageFile)
 	})
 
 	// Test case 4: Multiple detected images
@@ -303,10 +307,10 @@ title: Test Recipe
 
 Add @water{2%cups}.`
 
-		os.WriteFile(cookFile, []byte(recipeContent), 0644)
-		os.WriteFile(baseImage, []byte("base"), 0644)
-		os.WriteFile(image1, []byte("img1"), 0644)
-		os.WriteFile(image2, []byte("img2"), 0644)
+		_ = os.WriteFile(cookFile, []byte(recipeContent), 0644)
+		_ = os.WriteFile(baseImage, []byte("base"), 0644)
+		_ = os.WriteFile(image1, []byte("img1"), 0644)
+		_ = os.WriteFile(image2, []byte("img2"), 0644)
 
 		recipe, err := ParseFile(cookFile)
 		if err != nil {
@@ -335,10 +339,10 @@ Add @water{2%cups}.`
 		}
 
 		// Cleanup
-		os.Remove(cookFile)
-		os.Remove(baseImage)
-		os.Remove(image1)
-		os.Remove(image2)
+		_ = os.Remove(cookFile)
+		_ = os.Remove(baseImage)
+		_ = os.Remove(image1)
+		_ = os.Remove(image2)
 	})
 }
 
@@ -402,11 +406,13 @@ func TestFileExists(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to create temp dir: %v", err)
 	}
-	defer os.RemoveAll(tmpDir)
+	defer func() {
+		_ = os.RemoveAll(tmpDir)
+	}()
 
 	// Test file that exists
 	existingFile := filepath.Join(tmpDir, "exists.txt")
-	os.WriteFile(existingFile, []byte("test"), 0644)
+	_ = os.WriteFile(existingFile, []byte("test"), 0644)
 
 	if !fileExists(existingFile) {
 		t.Errorf("fileExists returned false for existing file")

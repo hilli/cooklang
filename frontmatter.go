@@ -9,14 +9,45 @@ import (
 	"time"
 )
 
-// FrontmatterEditor provides CRUD operations for recipe frontmatter metadata
+// FrontmatterEditor provides CRUD operations for recipe frontmatter metadata.
+// It allows reading, updating, and managing recipe metadata without manually parsing YAML.
+//
+// The editor works with the structured Recipe fields (title, cuisine, servings, etc.)
+// as well as custom metadata fields, providing a unified interface for metadata management.
+//
+// Example:
+//
+//	editor, err := cooklang.NewFrontmatterEditor("recipe.cook")
+//	if err != nil {
+//	    log.Fatal(err)
+//	}
+//	editor.SetMetadata("title", "Improved Pasta")
+//	editor.SetMetadata("servings", "4")
+//	editor.Save()
 type FrontmatterEditor struct {
 	filePath string
 	content  string
 	recipe   *Recipe
 }
 
-// NewFrontmatterEditor creates a new FrontmatterEditor for the given recipe file
+// NewFrontmatterEditor creates a new FrontmatterEditor for the given recipe file.
+// It reads and parses the file, making the metadata available for manipulation.
+//
+// Parameters:
+//   - filePath: Path to the .cook file to edit
+//
+// Returns:
+//   - *FrontmatterEditor: An editor instance ready for metadata operations
+//   - error: Any error encountered during file reading or parsing
+//
+// Example:
+//
+//	editor, err := cooklang.NewFrontmatterEditor("lasagna.cook")
+//	if err != nil {
+//	    log.Fatal(err)
+//	}
+//	title, _ := editor.GetMetadata("title")
+//	fmt.Println(title)
 func NewFrontmatterEditor(filePath string) (*FrontmatterEditor, error) {
 	content, err := os.ReadFile(filePath)
 	if err != nil {
@@ -35,8 +66,22 @@ func NewFrontmatterEditor(filePath string) (*FrontmatterEditor, error) {
 	}, nil
 }
 
-// GetMetadata retrieves a metadata value by key
-// Returns the value and a boolean indicating if the key exists
+// GetMetadata retrieves a metadata value by key.
+// It checks structured fields first (title, cuisine, etc.) then falls back to the generic metadata map.
+//
+// Parameters:
+//   - key: The metadata key to retrieve
+//
+// Returns:
+//   - string: The metadata value
+//   - bool: true if the key exists, false otherwise
+//
+// Example:
+//
+//	editor, _ := cooklang.NewFrontmatterEditor("recipe.cook")
+//	if title, ok := editor.GetMetadata("title"); ok {
+//	    fmt.Printf("Recipe title: %s\n", title)
+//	}
 func (fe *FrontmatterEditor) GetMetadata(key string) (string, bool) {
 	// Check structured fields first
 	switch key {
@@ -141,8 +186,25 @@ func (fe *FrontmatterEditor) GetAllMetadata() map[string]string {
 	return result
 }
 
-// SetMetadata sets or updates a metadata value
-// For array fields (tags, images), value can be comma-separated or an array notation
+// SetMetadata sets or updates a metadata value.
+// For array fields (tags, images), the value can be comma-separated.
+// For structured fields (servings, date), the value is validated and parsed.
+//
+// Parameters:
+//   - key: The metadata key to set
+//   - value: The value to set (format depends on the field type)
+//
+// Returns:
+//   - error: Validation error for structured fields (e.g., invalid date format)
+//
+// Example:
+//
+//	editor, _ := cooklang.NewFrontmatterEditor("recipe.cook")
+//	editor.SetMetadata("title", "Amazing Lasagna")
+//	editor.SetMetadata("servings", "6")
+//	editor.SetMetadata("tags", "italian, pasta, main course")
+//	editor.SetMetadata("date", "2024-01-15")
+//	editor.Save()
 func (fe *FrontmatterEditor) SetMetadata(key, value string) error {
 	// Update the recipe object
 	switch key {
@@ -245,7 +307,19 @@ func (fe *FrontmatterEditor) DeleteMetadata(key string) error {
 	return nil
 }
 
-// Save writes the updated recipe back to the file
+// Save writes the updated recipe back to the original file.
+// The recipe body (instructions) is preserved; only the frontmatter is updated.
+//
+// Returns:
+//   - error: Any error encountered during file writing
+//
+// Example:
+//
+//	editor, _ := cooklang.NewFrontmatterEditor("recipe.cook")
+//	editor.SetMetadata("title", "Updated Title")
+//	if err := editor.Save(); err != nil {
+//	    log.Fatal(err)
+//	}
 func (fe *FrontmatterEditor) Save() error {
 	return fe.SaveAs(fe.filePath)
 }

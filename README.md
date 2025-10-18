@@ -16,6 +16,45 @@ Go implementation of a cooklang parser.
 - ⚖️ Recipe scaling and ingredient consolidation
 - 🛠️ Comprehensive CLI tool
 
+## Usage Examples
+
+The library includes comprehensive, runnable examples demonstrating all major features. See [docs/EXAMPLES.md](docs/EXAMPLES.md) for a complete list.
+
+Quick example:
+
+```go
+package main
+
+import (
+    "fmt"
+    "log"
+    "github.com/hilli/cooklang"
+)
+
+func main() {
+    recipeText := `---
+title: Pasta Aglio e Olio
+servings: 2
+---
+Cook @pasta{400%g} in salted water for ~{10%minutes}.
+Meanwhile, heat @olive oil{4%tbsp} and sauté @garlic{3%cloves}.
+Toss everything together and serve.`
+
+    recipe, err := cooklang.ParseString(recipeText)
+    if err != nil {
+        log.Fatal(err)
+    }
+
+    fmt.Printf("Recipe: %s (serves %.0f)\n", recipe.Title, recipe.Servings)
+    
+    // Get shopping list
+    shoppingList, _ := recipe.GetCollectedIngredientsMap()
+    for ingredient, quantity := range shoppingList {
+        fmt.Printf("- %s: %s\n", ingredient, quantity)
+    }
+}
+```
+
 ## Cooklang specification
 
 See the [Cooklang specification](https://github.com/cooklang/spec/) for details.
