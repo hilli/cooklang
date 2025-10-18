@@ -897,6 +897,26 @@ func (r *Recipe) GetIngredients() *IngredientList {
 	return ingredientList
 }
 
+// GetCookware returns all cookware from a recipe
+func (r *Recipe) GetCookware() []*Cookware {
+	var cookware []*Cookware
+
+	// Walk through all steps and components to find cookware
+	currentStep := r.FirstStep
+	for currentStep != nil {
+		currentComponent := currentStep.FirstComponent
+		for currentComponent != nil {
+			if cw, ok := currentComponent.(*Cookware); ok {
+				cookware = append(cookware, cw)
+			}
+			currentComponent = currentComponent.GetNext()
+		}
+		currentStep = currentStep.NextStep
+	}
+
+	return cookware
+}
+
 // ConvertToSystem converts all convertible ingredients in the list to the target unit system
 func (il *IngredientList) ConvertToSystem(system UnitSystem) *IngredientList {
 	result := NewIngredientList()

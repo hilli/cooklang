@@ -105,7 +105,7 @@ func displayRecipe(recipe *cooklang.Recipe, filename string, detailed bool) {
 	}
 
 	// Display cookware
-	cookware := getCookware(recipe)
+	cookware := recipe.GetCookware()
 	if len(cookware) > 0 {
 		fmt.Println("\n🍳 Cookware:")
 		for _, item := range cookware {
@@ -136,25 +136,6 @@ func displayRecipe(recipe *cooklang.Recipe, filename string, detailed bool) {
 	}
 
 	fmt.Println()
-}
-
-// getCookware extracts all cookware from a recipe
-func getCookware(recipe *cooklang.Recipe) []*cooklang.Cookware {
-	var cookware []*cooklang.Cookware
-
-	currentStep := recipe.FirstStep
-	for currentStep != nil {
-		currentComponent := currentStep.FirstComponent
-		for currentComponent != nil {
-			if cw, ok := currentComponent.(*cooklang.Cookware); ok {
-				cookware = append(cookware, cw)
-			}
-			currentComponent = currentComponent.GetNext()
-		}
-		currentStep = currentStep.NextStep
-	}
-
-	return cookware
 }
 
 // getStepText builds the text representation of a step
