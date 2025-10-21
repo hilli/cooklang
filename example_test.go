@@ -3,6 +3,7 @@ package cooklang_test
 import (
 	"fmt"
 	"log"
+	"sort"
 
 	"github.com/hilli/cooklang"
 )
@@ -187,6 +188,11 @@ Add @sugar{50%g} for sweetness.`
 		log.Fatal(err)
 	}
 
+	// Sort ingredients by name for consistent output
+	sort.Slice(consolidated.Ingredients, func(i, j int) bool {
+		return consolidated.Ingredients[i].Name < consolidated.Ingredients[j].Name
+	})
+
 	fmt.Println("Consolidated ingredients:")
 	for _, ing := range consolidated.Ingredients {
 		fmt.Printf("- %s: %.0f %s\n", ing.Name, ing.Quantity, ing.Unit)
@@ -240,12 +246,19 @@ func ExampleRecipe_GetCollectedIngredientsMap() {
 		log.Fatal(err)
 	}
 
-	for name, quantity := range shoppingMap {
-		fmt.Printf("%s: %s\n", name, quantity)
+	// Sort keys for consistent output
+	keys := make([]string, 0, len(shoppingMap))
+	for name := range shoppingMap {
+		keys = append(keys, name)
+	}
+	sort.Strings(keys)
+
+	for _, name := range keys {
+		fmt.Printf("%s: %s\n", name, shoppingMap[name])
 	}
 	// Output:
-	// water: 1 l
 	// salt: 1.5 tsp
+	// water: 1 l
 }
 
 // ExampleCreateShoppingList demonstrates creating a shopping list from multiple recipes
@@ -293,8 +306,16 @@ func ExampleShoppingList_Scale() {
 	scaled := shoppingList.Scale(2.0)
 
 	fmt.Println("Scaled (×2):")
-	for name, qty := range scaled.ToMap() {
-		fmt.Printf("- %s: %s\n", name, qty)
+	scaledMap := scaled.ToMap()
+	// Sort keys for consistent output
+	keys := make([]string, 0, len(scaledMap))
+	for name := range scaledMap {
+		keys = append(keys, name)
+	}
+	sort.Strings(keys)
+
+	for _, name := range keys {
+		fmt.Printf("- %s: %s\n", name, scaledMap[name])
 	}
 	// Output:
 	// Scaled (×2):
