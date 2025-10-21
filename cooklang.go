@@ -236,8 +236,29 @@ func (i Ingredient) Render() string {
 	return result
 }
 
+// RenderDisplay returns ingredient in plain text format suitable for display.
+// Examples: "2 cups flour", "500 g flour", "some salt", "flour"
+func (i Ingredient) RenderDisplay() string {
+	var result string
+	if i.Quantity > 0 && i.Unit != "" {
+		result = fmt.Sprintf("%g %s %s", i.Quantity, i.Unit, i.Name)
+	} else if i.Quantity > 0 {
+		result = fmt.Sprintf("%g %s", i.Quantity, i.Name)
+	} else if i.Quantity == -1 {
+		result = fmt.Sprintf("some %s", i.Name)
+	} else {
+		result = i.Name
+	}
+	return result
+}
+
 // Render returns the plain text instruction.
 func (inst Instruction) Render() string {
+	return inst.Text
+}
+
+// RenderDisplay returns instruction text suitable for display (same as Render for Instruction).
+func (inst Instruction) RenderDisplay() string {
 	return inst.Text
 }
 
@@ -256,6 +277,15 @@ func (t Timer) Render() string {
 	return result
 }
 
+// RenderDisplay returns timer in plain text format suitable for display.
+// Returns the timer name if available, otherwise the duration.
+func (t Timer) RenderDisplay() string {
+	if t.Name != "" {
+		return t.Name
+	}
+	return t.Duration
+}
+
 // Render returns the Cooklang syntax representation of this cookware.
 // Examples: "#pot{}", "#bowl{2}", "#oven{}(preheated)"
 func (c Cookware) Render() string {
@@ -269,6 +299,12 @@ func (c Cookware) Render() string {
 		result += fmt.Sprintf("(%s)", c.Annotation)
 	}
 	return result
+}
+
+// RenderDisplay returns cookware in plain text format suitable for display.
+// Returns just the cookware name.
+func (c Cookware) RenderDisplay() string {
+	return c.Name
 }
 
 // Ingredient represents a recipe ingredient with quantity, unit, and optional annotations.
