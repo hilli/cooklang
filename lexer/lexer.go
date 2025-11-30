@@ -49,7 +49,8 @@ func (l *Lexer) NextToken() token.Token {
 	var tok token.Token
 
 	// Handle whitespace as tokens instead of skipping
-	if l.ch == ' ' || l.ch == '\t' || l.ch == '\r' {
+	// Note: \r is handled as newline, not whitespace
+	if l.ch == ' ' || l.ch == '\t' {
 		return l.readWhitespace()
 	}
 
@@ -61,9 +62,16 @@ func (l *Lexer) NextToken() token.Token {
 
 	switch l.ch {
 	case '\n':
-		tok = newToken(token.NEWLINE, l.ch)
+		tok = newToken(token.NEWLINE, '\n')
 		l.readChar()
 		return tok
+	case '\r':
+		// Handle \r\n (Windows CRLF) and \r alone (old Mac) as newlines
+		l.readChar() // consume \r
+		if l.ch == '\n' {
+			l.readChar() // consume \n in CRLF sequence
+		}
+		return token.Token{Type: token.NEWLINE, Literal: "\n"}
 	case '=': // = or ==
 		tok = newToken(token.SECTION, l.ch)
 	case '-':
@@ -76,7 +84,7 @@ func (l *Lexer) NextToken() token.Token {
 			} else {
 				// Single line comment starting with --
 				// Comments should only be recognized at start of line or after whitespace
-				if l.position == 0 || (l.position > 0 && (l.input[l.position-1] == '\n' || l.input[l.position-1] == ' ' || l.input[l.position-1] == '\t')) {
+				if l.position == 0 || (l.position > 0 && (l.input[l.position-1] == '\n' || l.input[l.position-1] == '\r' || l.input[l.position-1] == ' ' || l.input[l.position-1] == '\t')) {
 					return l.readComment()
 				}
 			}
@@ -168,7 +176,7 @@ func (l *Lexer) peekChar() rune {
 
 func (l *Lexer) readWhitespace() token.Token {
 	position := l.position
-	for l.ch == ' ' || l.ch == '\t' || l.ch == '\r' {
+	for l.ch == ' ' || l.ch == '\t' {
 		l.readChar()
 	}
 	return token.Token{Type: token.WHITESPACE, Literal: l.input[position:l.position]}
@@ -281,7 +289,7 @@ func (l *Lexer) readYAMLFrontmatter() token.Token {
 		// Check for closing ---
 		if l.ch == '-' && l.peekChar() == '-' && l.peekCharAt(1) == '-' {
 			// Make sure it's at the start of a line
-			if l.position == 0 || l.input[l.position-1] == '\n' {
+			if l.position == 0 || l.input[l.position-1] == '\n' || l.input[l.position-1] == '\r' {
 				break
 			}
 		}

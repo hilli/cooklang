@@ -134,3 +134,96 @@ func TestDashesNotYAMLFrontmatter(t *testing.T) {
 		t.Fatalf("expected DASH token for dash not at start of line, got %q", tok.Type)
 	}
 }
+
+// TestNewlineVariants tests that different newline styles are all tokenized as NEWLINE
+func TestNewlineVariants(t *testing.T) {
+	tests := []struct {
+		name     string
+		input    string
+		expected []token.TokenType
+	}{
+		{
+			name:     "Unix LF",
+			input:    "a\nb",
+			expected: []token.TokenType{token.IDENT, token.NEWLINE, token.IDENT, token.EOF},
+		},
+		{
+			name:     "Windows CRLF",
+			input:    "a\r\nb",
+			expected: []token.TokenType{token.IDENT, token.NEWLINE, token.IDENT, token.EOF},
+		},
+		{
+			name:     "Old Mac CR",
+			input:    "a\rb",
+			expected: []token.TokenType{token.IDENT, token.NEWLINE, token.IDENT, token.EOF},
+		},
+		{
+			name:     "Double Unix LF",
+			input:    "a\n\nb",
+			expected: []token.TokenType{token.IDENT, token.NEWLINE, token.NEWLINE, token.IDENT, token.EOF},
+		},
+		{
+			name:     "Double Windows CRLF",
+			input:    "a\r\n\r\nb",
+			expected: []token.TokenType{token.IDENT, token.NEWLINE, token.NEWLINE, token.IDENT, token.EOF},
+		},
+		{
+			name:     "Double Old Mac CR",
+			input:    "a\r\rb",
+			expected: []token.TokenType{token.IDENT, token.NEWLINE, token.NEWLINE, token.IDENT, token.EOF},
+		},
+		{
+			name:     "Mixed CRLF and LF",
+			input:    "a\r\nb\nc",
+			expected: []token.TokenType{token.IDENT, token.NEWLINE, token.IDENT, token.NEWLINE, token.IDENT, token.EOF},
+		},
+		{
+			name:     "Triple blank lines (Unix)",
+			input:    "a\n\n\nb",
+			expected: []token.TokenType{token.IDENT, token.NEWLINE, token.NEWLINE, token.NEWLINE, token.IDENT, token.EOF},
+		},
+		{
+			name:     "Triple blank lines (Windows)",
+			input:    "a\r\n\r\n\r\nb",
+			expected: []token.TokenType{token.IDENT, token.NEWLINE, token.NEWLINE, token.NEWLINE, token.IDENT, token.EOF},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			l := New(tt.input)
+			for i, expected := range tt.expected {
+				tok := l.NextToken()
+				if tok.Type != expected {
+					t.Errorf("token[%d]: expected %s, got %s (literal: %q)", i, expected, tok.Type, tok.Literal)
+				}
+			}
+		})
+	}
+}
+
+// TestNewlineLiteralNormalization tests that all newline variants produce normalized "\n" literals
+func TestNewlineLiteralNormalization(t *testing.T) {
+	tests := []struct {
+		name  string
+		input string
+	}{
+		{"Unix LF", "a\nb"},
+		{"Windows CRLF", "a\r\nb"},
+		{"Old Mac CR", "a\rb"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			l := New(tt.input)
+			l.NextToken() // skip 'a'
+			tok := l.NextToken()
+			if tok.Type != token.NEWLINE {
+				t.Fatalf("expected NEWLINE, got %s", tok.Type)
+			}
+			if tok.Literal != "\n" {
+				t.Errorf("expected newline literal to be normalized to \"\\n\", got %q", tok.Literal)
+			}
+		})
+	}
+}

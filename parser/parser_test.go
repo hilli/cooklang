@@ -426,209 +426,381 @@ func TestDebugCookwareWithoutBraces(t *testing.T) {
 
 // TestFractionParsing tests that fractions and mixed fractions are correctly converted to decimals
 func TestFractionParsing(t *testing.T) {
-tests := []struct {
-name             string
-input            string
-expectedQuantity string
-expectedUnit     string
-}{
-{
-name:             "Simple fraction 1/2",
-input:            "@gin{1/2%fl oz}",
-expectedQuantity: "0.5",
-expectedUnit:     "fl oz",
-},
-{
-name:             "Simple fraction 1/4",
-input:            "@gin{1/4%fl oz}",
-expectedQuantity: "0.25",
-expectedUnit:     "fl oz",
-},
-{
-name:             "Simple fraction 3/4",
-input:            "@gin{3/4%fl oz}",
-expectedQuantity: "0.75",
-expectedUnit:     "fl oz",
-},
-{
-name:             "Simple fraction with spaces 1 / 2",
-input:            "@gin{1 / 2%fl oz}",
-expectedQuantity: "0.5",
-expectedUnit:     "fl oz",
-},
-{
-name:             "Mixed fraction 1 1/2",
-input:            "@gin{1 1/2%fl oz}",
-expectedQuantity: "1.5",
-expectedUnit:     "fl oz",
-},
-{
-name:             "Mixed fraction 2 1/2",
-input:            "@gin{2 1/2%fl oz}",
-expectedQuantity: "2.5",
-expectedUnit:     "fl oz",
-},
-{
-name:             "Mixed fraction 2 3/4",
-input:            "@gin{2 3/4%fl oz}",
-expectedQuantity: "2.75",
-expectedUnit:     "fl oz",
-},
-{
-name:             "Mixed fraction with spaces 1 1 / 2",
-input:            "@gin{1 1 / 2%fl oz}",
-expectedQuantity: "1.5",
-expectedUnit:     "fl oz",
-},
-{
-name:             "Whole number",
-input:            "@gin{2%fl oz}",
-expectedQuantity: "2",
-expectedUnit:     "fl oz",
-},
-{
-name:             "Decimal",
-input:            "@gin{1.5%fl oz}",
-expectedQuantity: "1.5",
-expectedUnit:     "fl oz",
-},
-// Unicode fraction tests
-{
-name:             "Unicode fraction one half",
-input:            "@gin{½%fl oz}",
-expectedQuantity: "0.5",
-expectedUnit:     "fl oz",
-},
-{
-name:             "Unicode fraction one quarter",
-input:            "@gin{¼%fl oz}",
-expectedQuantity: "0.25",
-expectedUnit:     "fl oz",
-},
-{
-name:             "Unicode fraction three quarters",
-input:            "@gin{¾%fl oz}",
-expectedQuantity: "0.75",
-expectedUnit:     "fl oz",
-},
-{
-name:             "Unicode mixed fraction 1½",
-input:            "@gin{1½%fl oz}",
-expectedQuantity: "1.5",
-expectedUnit:     "fl oz",
-},
-{
-name:             "Unicode mixed fraction 2¼",
-input:            "@gin{2¼%fl oz}",
-expectedQuantity: "2.25",
-expectedUnit:     "fl oz",
-},
-{
-name:             "Unicode fraction one third",
-input:            "@gin{⅓%fl oz}",
-expectedQuantity: "0.3333333333333333",
-expectedUnit:     "fl oz",
-},
-{
-name:             "Unicode fraction two thirds",
-input:            "@gin{⅔%fl oz}",
-expectedQuantity: "0.6666666666666666",
-expectedUnit:     "fl oz",
-},
-{
-name:             "Unicode fraction one eighth",
-input:            "@gin{⅛%fl oz}",
-expectedQuantity: "0.125",
-expectedUnit:     "fl oz",
-},
-{
-name:             "Unicode fraction three eighths",
-input:            "@gin{⅜%fl oz}",
-expectedQuantity: "0.375",
-expectedUnit:     "fl oz",
-},
-{
-name:             "Unicode fraction five eighths",
-input:            "@gin{⅝%fl oz}",
-expectedQuantity: "0.625",
-expectedUnit:     "fl oz",
-},
-{
-name:             "Unicode fraction seven eighths",
-input:            "@gin{⅞%fl oz}",
-expectedQuantity: "0.875",
-expectedUnit:     "fl oz",
-},
-{
-name:             "Unicode fraction one fifth",
-input:            "@gin{⅕%fl oz}",
-expectedQuantity: "0.2",
-expectedUnit:     "fl oz",
-},
-{
-name:             "Unicode fraction two fifths",
-input:            "@gin{⅖%fl oz}",
-expectedQuantity: "0.4",
-expectedUnit:     "fl oz",
-},
-{
-name:             "Unicode fraction three fifths",
-input:            "@gin{⅗%fl oz}",
-expectedQuantity: "0.6",
-expectedUnit:     "fl oz",
-},
-{
-name:             "Unicode fraction four fifths",
-input:            "@gin{⅘%fl oz}",
-expectedQuantity: "0.8",
-expectedUnit:     "fl oz",
-},
-{
-name:             "Unicode fraction one sixth",
-input:            "@gin{⅙%fl oz}",
-expectedQuantity: "0.16666666666666666",
-expectedUnit:     "fl oz",
-},
-{
-name:             "Unicode fraction five sixths",
-input:            "@gin{⅚%fl oz}",
-expectedQuantity: "0.8333333333333334",
-expectedUnit:     "fl oz",
-},
+	tests := []struct {
+		name             string
+		input            string
+		expectedQuantity string
+		expectedUnit     string
+	}{
+		{
+			name:             "Simple fraction 1/2",
+			input:            "@gin{1/2%fl oz}",
+			expectedQuantity: "0.5",
+			expectedUnit:     "fl oz",
+		},
+		{
+			name:             "Simple fraction 1/4",
+			input:            "@gin{1/4%fl oz}",
+			expectedQuantity: "0.25",
+			expectedUnit:     "fl oz",
+		},
+		{
+			name:             "Simple fraction 3/4",
+			input:            "@gin{3/4%fl oz}",
+			expectedQuantity: "0.75",
+			expectedUnit:     "fl oz",
+		},
+		{
+			name:             "Simple fraction with spaces 1 / 2",
+			input:            "@gin{1 / 2%fl oz}",
+			expectedQuantity: "0.5",
+			expectedUnit:     "fl oz",
+		},
+		{
+			name:             "Mixed fraction 1 1/2",
+			input:            "@gin{1 1/2%fl oz}",
+			expectedQuantity: "1.5",
+			expectedUnit:     "fl oz",
+		},
+		{
+			name:             "Mixed fraction 2 1/2",
+			input:            "@gin{2 1/2%fl oz}",
+			expectedQuantity: "2.5",
+			expectedUnit:     "fl oz",
+		},
+		{
+			name:             "Mixed fraction 2 3/4",
+			input:            "@gin{2 3/4%fl oz}",
+			expectedQuantity: "2.75",
+			expectedUnit:     "fl oz",
+		},
+		{
+			name:             "Mixed fraction with spaces 1 1 / 2",
+			input:            "@gin{1 1 / 2%fl oz}",
+			expectedQuantity: "1.5",
+			expectedUnit:     "fl oz",
+		},
+		{
+			name:             "Whole number",
+			input:            "@gin{2%fl oz}",
+			expectedQuantity: "2",
+			expectedUnit:     "fl oz",
+		},
+		{
+			name:             "Decimal",
+			input:            "@gin{1.5%fl oz}",
+			expectedQuantity: "1.5",
+			expectedUnit:     "fl oz",
+		},
+		// Unicode fraction tests
+		{
+			name:             "Unicode fraction one half",
+			input:            "@gin{½%fl oz}",
+			expectedQuantity: "0.5",
+			expectedUnit:     "fl oz",
+		},
+		{
+			name:             "Unicode fraction one quarter",
+			input:            "@gin{¼%fl oz}",
+			expectedQuantity: "0.25",
+			expectedUnit:     "fl oz",
+		},
+		{
+			name:             "Unicode fraction three quarters",
+			input:            "@gin{¾%fl oz}",
+			expectedQuantity: "0.75",
+			expectedUnit:     "fl oz",
+		},
+		{
+			name:             "Unicode mixed fraction 1½",
+			input:            "@gin{1½%fl oz}",
+			expectedQuantity: "1.5",
+			expectedUnit:     "fl oz",
+		},
+		{
+			name:             "Unicode mixed fraction 2¼",
+			input:            "@gin{2¼%fl oz}",
+			expectedQuantity: "2.25",
+			expectedUnit:     "fl oz",
+		},
+		{
+			name:             "Unicode fraction one third",
+			input:            "@gin{⅓%fl oz}",
+			expectedQuantity: "0.3333333333333333",
+			expectedUnit:     "fl oz",
+		},
+		{
+			name:             "Unicode fraction two thirds",
+			input:            "@gin{⅔%fl oz}",
+			expectedQuantity: "0.6666666666666666",
+			expectedUnit:     "fl oz",
+		},
+		{
+			name:             "Unicode fraction one eighth",
+			input:            "@gin{⅛%fl oz}",
+			expectedQuantity: "0.125",
+			expectedUnit:     "fl oz",
+		},
+		{
+			name:             "Unicode fraction three eighths",
+			input:            "@gin{⅜%fl oz}",
+			expectedQuantity: "0.375",
+			expectedUnit:     "fl oz",
+		},
+		{
+			name:             "Unicode fraction five eighths",
+			input:            "@gin{⅝%fl oz}",
+			expectedQuantity: "0.625",
+			expectedUnit:     "fl oz",
+		},
+		{
+			name:             "Unicode fraction seven eighths",
+			input:            "@gin{⅞%fl oz}",
+			expectedQuantity: "0.875",
+			expectedUnit:     "fl oz",
+		},
+		{
+			name:             "Unicode fraction one fifth",
+			input:            "@gin{⅕%fl oz}",
+			expectedQuantity: "0.2",
+			expectedUnit:     "fl oz",
+		},
+		{
+			name:             "Unicode fraction two fifths",
+			input:            "@gin{⅖%fl oz}",
+			expectedQuantity: "0.4",
+			expectedUnit:     "fl oz",
+		},
+		{
+			name:             "Unicode fraction three fifths",
+			input:            "@gin{⅗%fl oz}",
+			expectedQuantity: "0.6",
+			expectedUnit:     "fl oz",
+		},
+		{
+			name:             "Unicode fraction four fifths",
+			input:            "@gin{⅘%fl oz}",
+			expectedQuantity: "0.8",
+			expectedUnit:     "fl oz",
+		},
+		{
+			name:             "Unicode fraction one sixth",
+			input:            "@gin{⅙%fl oz}",
+			expectedQuantity: "0.16666666666666666",
+			expectedUnit:     "fl oz",
+		},
+		{
+			name:             "Unicode fraction five sixths",
+			input:            "@gin{⅚%fl oz}",
+			expectedQuantity: "0.8333333333333334",
+			expectedUnit:     "fl oz",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			parser := New()
+			recipe, err := parser.ParseString(tt.input)
+			if err != nil {
+				t.Fatalf("Failed to parse recipe: %v", err)
+			}
+
+			if len(recipe.Steps) != 1 {
+				t.Fatalf("Expected 1 step, got %d", len(recipe.Steps))
+			}
+
+			// Find the ingredient component
+			var ingredientComp *Component
+			for _, comp := range recipe.Steps[0].Components {
+				if comp.Type == "ingredient" {
+					ingredientComp = &comp
+					break
+				}
+			}
+
+			if ingredientComp == nil {
+				t.Fatal("No ingredient component found")
+			}
+
+			if ingredientComp.Quantity != tt.expectedQuantity {
+				t.Errorf("Expected quantity %q, got %q", tt.expectedQuantity, ingredientComp.Quantity)
+			}
+
+			if ingredientComp.Unit != tt.expectedUnit {
+				t.Errorf("Expected unit %q, got %q", tt.expectedUnit, ingredientComp.Unit)
+			}
+		})
+	}
 }
 
-for _, tt := range tests {
-t.Run(tt.name, func(t *testing.T) {
-parser := New()
-recipe, err := parser.ParseString(tt.input)
-if err != nil {
-t.Fatalf("Failed to parse recipe: %v", err)
+// TestStepSeparationNewlineVariants tests that step separation works correctly
+// with Unix LF (\n), Windows CRLF (\r\n), and old Mac CR (\r) line endings
+func TestStepSeparationNewlineVariants(t *testing.T) {
+	tests := []struct {
+		name          string
+		input         string
+		expectedSteps int
+		stepContents  []string
+	}{
+		{
+			name:          "Unix LF blank line",
+			input:         "Step one.\n\nStep two.",
+			expectedSteps: 2,
+			stepContents:  []string{"Step one.", "Step two."},
+		},
+		{
+			name:          "Windows CRLF blank line",
+			input:         "Step one.\r\n\r\nStep two.",
+			expectedSteps: 2,
+			stepContents:  []string{"Step one.", "Step two."},
+		},
+		{
+			name:          "Old Mac CR blank line",
+			input:         "Step one.\r\rStep two.",
+			expectedSteps: 2,
+			stepContents:  []string{"Step one.", "Step two."},
+		},
+		{
+			name:          "Single Unix LF (no step break)",
+			input:         "Step one.\nStep two.",
+			expectedSteps: 1,
+			stepContents:  []string{"Step one. Step two."},
+		},
+		{
+			name:          "Single Windows CRLF (no step break)",
+			input:         "Step one.\r\nStep two.",
+			expectedSteps: 1,
+			stepContents:  []string{"Step one. Step two."},
+		},
+		{
+			name:          "Single Old Mac CR (no step break)",
+			input:         "Step one.\rStep two.",
+			expectedSteps: 1,
+			stepContents:  []string{"Step one. Step two."},
+		},
+		{
+			name:          "Mixed: CRLF then LF blank lines",
+			input:         "Step one.\r\n\r\nStep two.\n\nStep three.",
+			expectedSteps: 3,
+			stepContents:  []string{"Step one.", "Step two.", "Step three."},
+		},
+		{
+			name:          "Multiple blank lines (Unix) collapse to one step break",
+			input:         "Step one.\n\n\n\nStep two.",
+			expectedSteps: 2,
+			stepContents:  []string{"Step one.", "Step two."},
+		},
+		{
+			name:          "Multiple blank lines (Windows) collapse to one step break",
+			input:         "Step one.\r\n\r\n\r\n\r\nStep two.",
+			expectedSteps: 2,
+			stepContents:  []string{"Step one.", "Step two."},
+		},
+		{
+			name:          "With ingredients - Unix LF",
+			input:         "Add @salt{1%tsp}.\n\nStir well.",
+			expectedSteps: 2,
+		},
+		{
+			name:          "With ingredients - Windows CRLF",
+			input:         "Add @salt{1%tsp}.\r\n\r\nStir well.",
+			expectedSteps: 2,
+		},
+		{
+			name:          "With ingredients - Old Mac CR",
+			input:         "Add @salt{1%tsp}.\r\rStir well.",
+			expectedSteps: 2,
+		},
+	}
+
+	p := New()
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			recipe, err := p.ParseString(tt.input)
+			if err != nil {
+				t.Fatalf("Failed to parse: %v", err)
+			}
+			if len(recipe.Steps) != tt.expectedSteps {
+				t.Errorf("Expected %d steps, got %d", tt.expectedSteps, len(recipe.Steps))
+				for i, step := range recipe.Steps {
+					var content string
+					for _, comp := range step.Components {
+						content += comp.Value + comp.Name
+					}
+					t.Logf("Step %d: %q", i+1, content)
+				}
+			}
+			// Check step contents if provided
+			for i, expected := range tt.stepContents {
+				if i >= len(recipe.Steps) {
+					break
+				}
+				var actual string
+				for _, comp := range recipe.Steps[i].Components {
+					actual += comp.Value
+				}
+				if actual != expected {
+					t.Errorf("Step %d: expected %q, got %q", i+1, expected, actual)
+				}
+			}
+		})
+	}
 }
 
-if len(recipe.Steps) != 1 {
-t.Fatalf("Expected 1 step, got %d", len(recipe.Steps))
+// TestYAMLFrontmatterWithCRLF tests that YAML frontmatter works with Windows line endings
+func TestYAMLFrontmatterWithCRLF(t *testing.T) {
+	// Windows-style CRLF line endings in YAML frontmatter
+	input := "---\r\ntitle: Test Recipe\r\nauthor: Chef\r\n---\r\n\r\nCook the @pasta{500%g}."
+
+	p := New()
+	recipe, err := p.ParseString(input)
+	if err != nil {
+		t.Fatalf("Failed to parse recipe with CRLF frontmatter: %v", err)
+	}
+
+	if recipe.Metadata["title"] != "Test Recipe" {
+		t.Errorf("Expected title 'Test Recipe', got %q", recipe.Metadata["title"])
+	}
+
+	if len(recipe.Steps) != 1 {
+		t.Errorf("Expected 1 step, got %d", len(recipe.Steps))
+	}
 }
 
-// Find the ingredient component
-var ingredientComp *Component
-for _, comp := range recipe.Steps[0].Components {
-if comp.Type == "ingredient" {
-ingredientComp = &comp
-break
-}
-}
+// TestCommentsWithCRLF tests that comments work correctly with different line endings
+func TestCommentsWithCRLF(t *testing.T) {
+	tests := []struct {
+		name          string
+		input         string
+		expectedSteps int
+	}{
+		{
+			name:          "Comment with Unix LF",
+			input:         "-- This is a comment\nCook something.",
+			expectedSteps: 1,
+		},
+		{
+			name:          "Comment with Windows CRLF",
+			input:         "-- This is a comment\r\nCook something.",
+			expectedSteps: 1,
+		},
+		{
+			name:          "Comment with Old Mac CR",
+			input:         "-- This is a comment\rCook something.",
+			expectedSteps: 1,
+		},
+	}
 
-if ingredientComp == nil {
-t.Fatal("No ingredient component found")
-}
-
-if ingredientComp.Quantity != tt.expectedQuantity {
-t.Errorf("Expected quantity %q, got %q", tt.expectedQuantity, ingredientComp.Quantity)
-}
-
-if ingredientComp.Unit != tt.expectedUnit {
-t.Errorf("Expected unit %q, got %q", tt.expectedUnit, ingredientComp.Unit)
-}
-})
-}
+	p := New()
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			recipe, err := p.ParseString(tt.input)
+			if err != nil {
+				t.Fatalf("Failed to parse: %v", err)
+			}
+			if len(recipe.Steps) != tt.expectedSteps {
+				t.Errorf("Expected %d step(s), got %d", tt.expectedSteps, len(recipe.Steps))
+			}
+		})
+	}
 }
