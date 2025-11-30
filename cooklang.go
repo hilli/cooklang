@@ -196,10 +196,10 @@ func getCookingUnitType(unit string) string {
 // StepComponent represents a component within a recipe step (ingredient, instruction, timer, or cookware).
 // Components are organized as a linked list within each step, allowing iteration through the sequence of actions.
 type StepComponent interface {
-	isStepComponent()                   // Marker method
-	Render() string                     // Renders the component as Cooklang syntax
-	SetNext(StepComponent)              // Sets the next component in the linked list
-	GetNext() StepComponent             // Gets the next component in the linked list
+	isStepComponent()       // Marker method
+	Render() string         // Renders the component as Cooklang syntax
+	SetNext(StepComponent)  // Sets the next component in the linked list
+	GetNext() StepComponent // Gets the next component in the linked list
 }
 
 // Step represents a single step in a recipe's instructions.
@@ -1362,8 +1362,8 @@ func (r *Recipe) GetCollectedIngredientsMap() (map[string]string, error) {
 // ShoppingList represents a consolidated list of ingredients from multiple recipes.
 // It combines ingredients across recipes and provides a unified shopping list with recipe attribution.
 type ShoppingList struct {
-	Ingredients *IngredientList `json:"ingredients"`          // Consolidated ingredient list
-	Recipes     []string        `json:"recipes,omitempty"`   // List of recipe titles included
+	Ingredients *IngredientList `json:"ingredients"`       // Consolidated ingredient list
+	Recipes     []string        `json:"recipes,omitempty"` // List of recipe titles included
 }
 
 // CreateShoppingList creates a consolidated shopping list from multiple recipes.

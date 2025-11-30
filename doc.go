@@ -23,7 +23,7 @@
 //	if err != nil {
 //	    log.Fatal(err)
 //	}
-//	
+//
 //	for _, ing := range consolidated.Ingredients {
 //	    fmt.Printf("- %s: %.1f %s\n", ing.Name, ing.Quantity, ing.Unit)
 //	}
@@ -34,10 +34,10 @@
 //
 //	// Convert to metric
 //	shoppingList, err := recipe.GetMetricShoppingList()
-//	
+//
 //	// Convert to US customary
 //	shoppingList, err := recipe.GetUSShoppingList()
-//	
+//
 //	// Convert individual ingredients
 //	ingredient := &cooklang.Ingredient{Name: "flour", Quantity: 2, Unit: "cup"}
 //	converted, err := ingredient.ConvertTo("g")
@@ -49,15 +49,15 @@
 //	recipe1, _ := cooklang.ParseFile("pasta.cook")
 //	recipe2, _ := cooklang.ParseFile("salad.cook")
 //	recipe3, _ := cooklang.ParseFile("dessert.cook")
-//	
+//
 //	shoppingList, err := cooklang.CreateShoppingList(recipe1, recipe2, recipe3)
 //	if err != nil {
 //	    log.Fatal(err)
 //	}
-//	
+//
 //	// Scale for meal prep
 //	doubled := shoppingList.Scale(2.0)
-//	
+//
 //	// Print the list
 //	for ingredient, amount := range doubled.ToMap() {
 //	    fmt.Printf("☐ %s: %s\n", ingredient, amount)
@@ -71,12 +71,12 @@
 //	if err != nil {
 //	    log.Fatal(err)
 //	}
-//	
+//
 //	editor.SetMetadata("title", "Improved Lasagna")
 //	editor.SetMetadata("servings", "8")
 //	editor.SetMetadata("tags", "italian, pasta, main course")
 //	editor.SetMetadata("difficulty", "medium")
-//	
+//
 //	if err := editor.Save(); err != nil {
 //	    log.Fatal(err)
 //	}
@@ -86,16 +86,16 @@
 // Render recipes in different formats:
 //
 //	import "github.com/hilli/cooklang/renderers"
-//	
+//
 //	recipe, _ := cooklang.ParseFile("recipe.cook")
-//	
+//
 //	// Render as Markdown
 //	markdown := recipe.RenderWith(renderers.MarkdownRenderer{})
 //	fmt.Println(markdown)
-//	
+//
 //	// Render as HTML
 //	html := recipe.RenderWith(renderers.HTMLRenderer{})
-//	
+//
 //	// Set a custom renderer
 //	recipe.SetRenderer(renderers.CooklangRenderer{})
 //	cooklangText := recipe.Render()
@@ -111,7 +111,7 @@
 //	stepNum := 1
 //	for currentStep != nil {
 //	    fmt.Printf("Step %d:\n", stepNum)
-//	    
+//
 //	    // Walk through components in this step
 //	    component := currentStep.FirstComponent
 //	    for component != nil {
@@ -127,7 +127,7 @@
 //	        }
 //	        component = component.GetNext()
 //	    }
-//	    
+//
 //	    currentStep = currentStep.NextStep
 //	    stepNum++
 //	}

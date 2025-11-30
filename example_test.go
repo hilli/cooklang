@@ -283,7 +283,7 @@ Mix @olive oil{3%tbsp} with @lettuce{100%g}.`
 
 	fmt.Printf("Shopping list for %d recipes:\n", len(shoppingList.Recipes))
 	ingredientMap := shoppingList.ToMap()
-	
+
 	// Print in deterministic order
 	fmt.Printf("- lettuce: %s\n", ingredientMap["lettuce"])
 	fmt.Printf("- olive oil: %s\n", ingredientMap["olive oil"])
@@ -457,7 +457,7 @@ func ExampleIngredientList_ToMap() {
 	ingredients := recipe.GetIngredients()
 
 	ingredientMap := ingredients.ToMap()
-	
+
 	// Print in deterministic order for test
 	fmt.Printf("eggs: %s\n", ingredientMap["eggs"])
 	fmt.Printf("flour: %s\n", ingredientMap["flour"])

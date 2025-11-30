@@ -66,7 +66,7 @@ Bake in an #oven{} at 180°C for ~{30%minutes}.
 	}
 
 	cookware := parsed.GetCookware()
-	
+
 	if len(cookware) != 3 {
 		t.Errorf("Expected 3 cookware items, got %d", len(cookware))
 	}
@@ -91,7 +91,7 @@ Mix ingredients in #bowl{2}.
 	}
 
 	cookware := parsed.GetCookware()
-	
+
 	if len(cookware) != 1 {
 		t.Fatalf("Expected 1 cookware item, got %d", len(cookware))
 	}
@@ -116,7 +116,7 @@ Mix @flour{200%g} with @water{100%ml}.
 	}
 
 	cookware := parsed.GetCookware()
-	
+
 	if len(cookware) != 0 {
 		t.Errorf("Expected 0 cookware items, got %d", len(cookware))
 	}

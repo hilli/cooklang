@@ -708,24 +708,24 @@ func (p *CooklangParser) evaluateFraction(quantity string) string {
 func (p *CooklangParser) convertUnicodeFractions(quantity string) string {
 	// Map of Unicode fraction characters to their decimal values
 	unicodeFractions := map[rune]float64{
-		'½': 0.5,      // VULGAR FRACTION ONE HALF
-		'¼': 0.25,     // VULGAR FRACTION ONE QUARTER
-		'¾': 0.75,     // VULGAR FRACTION THREE QUARTERS
-		'⅓': 1.0 / 3,  // VULGAR FRACTION ONE THIRD
-		'⅔': 2.0 / 3,  // VULGAR FRACTION TWO THIRDS
-		'⅕': 0.2,      // VULGAR FRACTION ONE FIFTH
-		'⅖': 0.4,      // VULGAR FRACTION TWO FIFTHS
-		'⅗': 0.6,      // VULGAR FRACTION THREE FIFTHS
-		'⅘': 0.8,      // VULGAR FRACTION FOUR FIFTHS
-		'⅙': 1.0 / 6,  // VULGAR FRACTION ONE SIXTH
-		'⅚': 5.0 / 6,  // VULGAR FRACTION FIVE SIXTHS
-		'⅐': 1.0 / 7,  // VULGAR FRACTION ONE SEVENTH
-		'⅛': 0.125,    // VULGAR FRACTION ONE EIGHTH
-		'⅜': 0.375,    // VULGAR FRACTION THREE EIGHTHS
-		'⅝': 0.625,    // VULGAR FRACTION FIVE EIGHTHS
-		'⅞': 0.875,    // VULGAR FRACTION SEVEN EIGHTHS
-		'⅑': 1.0 / 9,  // VULGAR FRACTION ONE NINTH
-		'⅒': 0.1,      // VULGAR FRACTION ONE TENTH
+		'½': 0.5,     // VULGAR FRACTION ONE HALF
+		'¼': 0.25,    // VULGAR FRACTION ONE QUARTER
+		'¾': 0.75,    // VULGAR FRACTION THREE QUARTERS
+		'⅓': 1.0 / 3, // VULGAR FRACTION ONE THIRD
+		'⅔': 2.0 / 3, // VULGAR FRACTION TWO THIRDS
+		'⅕': 0.2,     // VULGAR FRACTION ONE FIFTH
+		'⅖': 0.4,     // VULGAR FRACTION TWO FIFTHS
+		'⅗': 0.6,     // VULGAR FRACTION THREE FIFTHS
+		'⅘': 0.8,     // VULGAR FRACTION FOUR FIFTHS
+		'⅙': 1.0 / 6, // VULGAR FRACTION ONE SIXTH
+		'⅚': 5.0 / 6, // VULGAR FRACTION FIVE SIXTHS
+		'⅐': 1.0 / 7, // VULGAR FRACTION ONE SEVENTH
+		'⅛': 0.125,   // VULGAR FRACTION ONE EIGHTH
+		'⅜': 0.375,   // VULGAR FRACTION THREE EIGHTHS
+		'⅝': 0.625,   // VULGAR FRACTION FIVE EIGHTHS
+		'⅞': 0.875,   // VULGAR FRACTION SEVEN EIGHTHS
+		'⅑': 1.0 / 9, // VULGAR FRACTION ONE NINTH
+		'⅒': 0.1,     // VULGAR FRACTION ONE TENTH
 	}
 
 	// Check if the string contains any Unicode fractions
