@@ -10,6 +10,7 @@ package main
 import (
     "fmt"
     "github.com/hilli/cooklang"
+    "github.com/hilli/cooklang/renderers"
 )
 
 func main() {
@@ -23,9 +24,10 @@ func main() {
     fmt.Println(recipe.Render())
 
     // Use built-in renderers
-    fmt.Println(recipe.RenderWith(cooklang.DefaultMarkdownRenderer))
-    fmt.Println(recipe.RenderWith(cooklang.DefaultHTMLRenderer))
-    fmt.Println(recipe.RenderWith(cooklang.DefaultCooklangRenderer))
+    fmt.Println(recipe.RenderWith(renderers.Default.Markdown))
+    fmt.Println(recipe.RenderWith(renderers.Default.HTML))
+    fmt.Println(recipe.RenderWith(renderers.Default.Cooklang))
+    fmt.Println(recipe.RenderWith(renderers.Default.Print))
 }
 ```
 
@@ -35,21 +37,37 @@ func main() {
 Renders recipes in the original Cooklang format with metadata and components.
 
 ```go
-output := recipe.RenderWith(cooklang.DefaultCooklangRenderer)
+output := recipe.RenderWith(renderers.Default.Cooklang)
 ```
 
 ### 2. MarkdownRenderer
 Renders recipes as Markdown with proper headers and formatting.
 
 ```go
-output := recipe.RenderWith(cooklang.DefaultMarkdownRenderer)
+output := recipe.RenderWith(renderers.Default.Markdown)
 ```
 
 ### 3. HTMLRenderer
 Renders recipes as HTML with CSS classes for styling.
 
 ```go
-output := recipe.RenderWith(cooklang.DefaultHTMLRenderer)
+output := recipe.RenderWith(renderers.Default.HTML)
+```
+
+### 4. PrintRenderer
+Renders recipes as print-optimized HTML with embedded CSS, designed to fit nicely on a single sheet of paper. Features:
+- Two-column layout (ingredients left, instructions right)
+- Print-specific CSS with `@page` rules
+- Clean, professional typography
+- No interactive elements or unnecessary UI chrome
+
+```go
+output := recipe.RenderWith(renderers.Default.Print)
+```
+
+Or via CLI:
+```bash
+cook render recipe.cook --format=print --output=recipe.html
 ```
 
 ## Custom Renderers

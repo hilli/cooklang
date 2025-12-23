@@ -10,10 +10,12 @@ var (
 		Cooklang CooklangRenderer
 		Markdown MarkdownRenderer
 		HTML     HTMLRenderer
+		Print    PrintRenderer
 	}{
 		Cooklang: CooklangRenderer{},
 		Markdown: MarkdownRenderer{},
 		HTML:     HTMLRenderer{},
+		Print:    PrintRenderer{},
 	}
 )
 
@@ -30,4 +32,9 @@ func NewMarkdownRenderer() cooklang.RecipeRenderer {
 // NewHTMLRenderer creates a new HTML renderer
 func NewHTMLRenderer() cooklang.RecipeRenderer {
 	return HTMLRenderer{}
+}
+
+// NewPrintRenderer creates a new print-optimized HTML renderer
+func NewPrintRenderer() cooklang.RecipeRenderer {
+	return PrintRenderer{}
 }

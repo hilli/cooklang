@@ -86,6 +86,86 @@ func TestBasicRenderers(t *testing.T) {
 		}
 	})
 
+	t.Run("PrintRenderer", func(t *testing.T) {
+		output := recipe.RenderWith(Default.Print)
+
+		// Check for complete HTML document structure
+		if !strings.Contains(output, "<!DOCTYPE html>") {
+			t.Errorf("Expected HTML doctype, got: %s", output)
+		}
+		if !strings.Contains(output, "<html lang=\"en\">") {
+			t.Errorf("Expected html lang attribute, got: %s", output)
+		}
+		if !strings.Contains(output, "</html>") {
+			t.Errorf("Expected closing html tag, got: %s", output)
+		}
+
+		// Check for embedded CSS
+		if !strings.Contains(output, "<style>") {
+			t.Errorf("Expected embedded CSS, got: %s", output)
+		}
+		if !strings.Contains(output, "@page") {
+			t.Errorf("Expected @page CSS rule for printing, got: %s", output)
+		}
+		if !strings.Contains(output, "@media print") {
+			t.Errorf("Expected @media print CSS rules, got: %s", output)
+		}
+
+		// Check for title in both <title> and <h1>
+		if !strings.Contains(output, "<title>Test Pasta</title>") {
+			t.Errorf("Expected HTML title element, got: %s", output)
+		}
+		if !strings.Contains(output, "<h1 class=\"recipe-title\">Test Pasta</h1>") {
+			t.Errorf("Expected h1 title, got: %s", output)
+		}
+
+		// Check for recipe metadata
+		if !strings.Contains(output, "Servings:</span> 4") {
+			t.Errorf("Expected servings in metadata, got: %s", output)
+		}
+		if !strings.Contains(output, "Cuisine:</span> Italian") {
+			t.Errorf("Expected cuisine in metadata, got: %s", output)
+		}
+
+		// Check for two-column layout structure
+		if !strings.Contains(output, "class=\"recipe-body\"") {
+			t.Errorf("Expected recipe-body container for two-column layout, got: %s", output)
+		}
+		if !strings.Contains(output, "class=\"recipe-ingredients\"") {
+			t.Errorf("Expected recipe-ingredients section, got: %s", output)
+		}
+		if !strings.Contains(output, "class=\"recipe-instructions\"") {
+			t.Errorf("Expected recipe-instructions section, got: %s", output)
+		}
+
+		// Check for ingredient formatting
+		if !strings.Contains(output, "class=\"ingredient-qty\"") {
+			t.Errorf("Expected ingredient-qty class, got: %s", output)
+		}
+		if !strings.Contains(output, "class=\"ingredient-name\"") {
+			t.Errorf("Expected ingredient-name class, got: %s", output)
+		}
+		if !strings.Contains(output, "2 liters") {
+			t.Errorf("Expected formatted quantity '2 liters', got: %s", output)
+		}
+
+		// Check for instruction formatting with inline styles
+		if !strings.Contains(output, "class=\"ing\"") {
+			t.Errorf("Expected ing class for inline ingredients, got: %s", output)
+		}
+		if !strings.Contains(output, "class=\"cw\"") {
+			t.Errorf("Expected cw class for cookware, got: %s", output)
+		}
+
+		// Check for tags in footer
+		if !strings.Contains(output, "class=\"recipe-tags\"") {
+			t.Errorf("Expected recipe-tags in footer, got: %s", output)
+		}
+		if !strings.Contains(output, "pasta, quick, easy") {
+			t.Errorf("Expected tags content, got: %s", output)
+		}
+	})
+
 	t.Run("CustomRenderer", func(t *testing.T) {
 		// Test setting a custom renderer
 		customRenderer := cooklang.RendererFunc(func(r *cooklang.Recipe) string {

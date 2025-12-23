@@ -24,10 +24,12 @@ Supported formats:
   • cooklang - Original Cooklang format
   • markdown - Markdown format (default)
   • html     - HTML format
+  • print    - Print-optimized HTML (single page, embedded CSS)
 
 Examples:
   cook render recipe.cook
   cook render recipe.cook --format=html
+  cook render recipe.cook --format=print --output=recipe.html
   cook render recipe.cook --format=markdown --output=recipe.md
   cook render recipe.cook -f html -o recipe.html`,
 	Args: cobra.ExactArgs(1),
@@ -35,7 +37,7 @@ Examples:
 }
 
 func init() {
-	renderCmd.Flags().StringVarP(&renderFormat, "format", "f", "markdown", "Output format (cooklang, markdown, html)")
+	renderCmd.Flags().StringVarP(&renderFormat, "format", "f", "markdown", "Output format (cooklang, markdown, html, print)")
 	renderCmd.Flags().StringVarP(&renderOutput, "output", "o", "", "Output file (default: stdout)")
 	rootCmd.AddCommand(renderCmd)
 }
@@ -59,8 +61,11 @@ func runRender(cmd *cobra.Command, args []string) error {
 	case "html":
 		renderer := renderers.NewHTMLRenderer()
 		output = renderer.RenderRecipe(recipe)
+	case "print":
+		renderer := renderers.NewPrintRenderer()
+		output = renderer.RenderRecipe(recipe)
 	default:
-		return fmt.Errorf("unsupported format: %s (supported: cooklang, markdown, html)", renderFormat)
+		return fmt.Errorf("unsupported format: %s (supported: cooklang, markdown, html, print)", renderFormat)
 	}
 
 	// Output to file or stdout
