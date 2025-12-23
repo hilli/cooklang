@@ -389,19 +389,19 @@ func (fe *FrontmatterEditor) renderFrontmatter() string {
 
 	// Add structured fields in a logical order
 	if fe.recipe.Title != "" {
-		lines = append(lines, fmt.Sprintf("title: %s", fe.recipe.Title))
+		lines = append(lines, renderYAMLValue("title", fe.recipe.Title)...)
 	}
 	if fe.recipe.Cuisine != "" {
-		lines = append(lines, fmt.Sprintf("cuisine: %s", fe.recipe.Cuisine))
+		lines = append(lines, renderYAMLValue("cuisine", fe.recipe.Cuisine)...)
 	}
 	if fe.recipe.Description != "" {
-		lines = append(lines, fmt.Sprintf("description: %s", fe.recipe.Description))
+		lines = append(lines, renderYAMLValue("description", fe.recipe.Description)...)
 	}
 	if fe.recipe.Difficulty != "" {
-		lines = append(lines, fmt.Sprintf("difficulty: %s", fe.recipe.Difficulty))
+		lines = append(lines, renderYAMLValue("difficulty", fe.recipe.Difficulty)...)
 	}
 	if fe.recipe.Author != "" {
-		lines = append(lines, fmt.Sprintf("author: %s", fe.recipe.Author))
+		lines = append(lines, renderYAMLValue("author", fe.recipe.Author)...)
 	}
 	if !fe.recipe.Date.IsZero() {
 		lines = append(lines, fmt.Sprintf("date: %s", fe.recipe.Date.Format("2006-01-02")))
@@ -410,10 +410,10 @@ func (fe *FrontmatterEditor) renderFrontmatter() string {
 		lines = append(lines, fmt.Sprintf("servings: %g", fe.recipe.Servings))
 	}
 	if fe.recipe.PrepTime != "" {
-		lines = append(lines, fmt.Sprintf("prep_time: %s", fe.recipe.PrepTime))
+		lines = append(lines, renderYAMLValue("prep_time", fe.recipe.PrepTime)...)
 	}
 	if fe.recipe.TotalTime != "" {
-		lines = append(lines, fmt.Sprintf("total_time: %s", fe.recipe.TotalTime))
+		lines = append(lines, renderYAMLValue("total_time", fe.recipe.TotalTime)...)
 	}
 	if len(fe.recipe.Tags) > 0 {
 		lines = append(lines, "tags:")
@@ -448,11 +448,26 @@ func (fe *FrontmatterEditor) renderFrontmatter() string {
 
 	for _, key := range keys {
 		value := fe.recipe.Metadata[key]
-		lines = append(lines, fmt.Sprintf("%s: %s", key, value))
+		lines = append(lines, renderYAMLValue(key, value)...)
 	}
 
 	lines = append(lines, "---")
 	return strings.Join(lines, "\n")
+}
+
+// renderYAMLValue renders a key-value pair, using block scalar syntax for multi-line values
+func renderYAMLValue(key, value string) []string {
+	// Check if value contains newlines
+	if strings.Contains(value, "\n") {
+		// Use literal block scalar with strip chomping (|-)
+		lines := []string{fmt.Sprintf("%s: |-", key)}
+		for _, line := range strings.Split(value, "\n") {
+			lines = append(lines, "  "+line)
+		}
+		return lines
+	}
+	// Single-line value - use inline format
+	return []string{fmt.Sprintf("%s: %s", key, value)}
 }
 
 // isStandardField checks if a key is a standard structured field

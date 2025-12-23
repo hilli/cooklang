@@ -219,29 +219,211 @@ func (p *CooklangParser) parseTokens(l *lexer.Lexer) (*Recipe, error) {
 	return recipe, nil
 }
 
+// blockScalarType represents the type and chomping mode of a YAML block scalar
+type blockScalarType struct {
+	style    string // "literal" (|) or "folded" (>)
+	chomping string // "strip" (-), "keep" (+), or "clip" (default)
+}
+
+// parseBlockScalarIndicator parses a block scalar indicator like |, |-, |+, >, >-, >+
+// Returns the block scalar type and whether it's a valid block scalar indicator
+func parseBlockScalarIndicator(value string) (blockScalarType, bool) {
+	value = strings.TrimSpace(value)
+	if value == "" {
+		return blockScalarType{}, false
+	}
+
+	var result blockScalarType
+
+	// Check first character for style
+	switch value[0] {
+	case '|':
+		result.style = "literal"
+	case '>':
+		result.style = "folded"
+	default:
+		return blockScalarType{}, false
+	}
+
+	// Check for chomping indicator
+	if len(value) == 1 {
+		result.chomping = "clip" // default
+	} else {
+		switch value[1] {
+		case '-':
+			result.chomping = "strip"
+		case '+':
+			result.chomping = "keep"
+		default:
+			// Could be an indentation indicator (digit) - treat as clip
+			result.chomping = "clip"
+		}
+	}
+
+	return result, true
+}
+
+// countLeadingSpaces returns the number of leading spaces in a line
+func countLeadingSpaces(line string) int {
+	count := 0
+	for _, ch := range line {
+		if ch == ' ' {
+			count++
+		} else if ch == '\t' {
+			count += 2 // Treat tab as 2 spaces
+		} else {
+			break
+		}
+	}
+	return count
+}
+
+// isBlankOrWhitespace checks if a line is empty or contains only whitespace
+func isBlankOrWhitespace(line string) bool {
+	return strings.TrimSpace(line) == ""
+}
+
+// applyChomping applies the chomping rules to the block scalar content
+func applyChomping(content string, chomping string) string {
+	switch chomping {
+	case "strip":
+		// Remove all trailing newlines
+		return strings.TrimRight(content, "\n")
+	case "keep":
+		// Keep all trailing newlines as-is
+		return content
+	default: // "clip"
+		// Keep a single trailing newline
+		content = strings.TrimRight(content, "\n")
+		if content != "" {
+			content += "\n"
+		}
+		return content
+	}
+}
+
+// foldLines applies folded block scalar rules:
+// - Single newlines become spaces
+// - Multiple consecutive newlines preserve paragraph breaks
+// - Leading whitespace on a line preserves the newline before it
+func foldLines(lines []string) string {
+	if len(lines) == 0 {
+		return ""
+	}
+
+	var result strings.Builder
+	prevWasBlank := false
+
+	for i, line := range lines {
+		if line == "" {
+			// Blank line - preserve it
+			if i > 0 {
+				result.WriteString("\n")
+			}
+			prevWasBlank = true
+			continue
+		}
+
+		// Check if line starts with whitespace (literal block within folded)
+		startsWithSpace := len(line) > 0 && (line[0] == ' ' || line[0] == '\t')
+
+		if i > 0 && !prevWasBlank {
+			if startsWithSpace {
+				// Preserve newline before indented content
+				result.WriteString("\n")
+			} else {
+				// Fold: replace newline with space
+				result.WriteString(" ")
+			}
+		} else if prevWasBlank && i > 0 {
+			// After blank line, start new paragraph
+			result.WriteString("\n")
+		}
+
+		result.WriteString(line)
+		prevWasBlank = false
+	}
+
+	return result.String()
+}
+
 // parseYAMLMetadata parses YAML frontmatter into a metadata map
+// Supports block scalars (|, |-, |+, >, >-, >+) for multi-line values
 func (p *CooklangParser) parseYAMLMetadata(yamlContent string) (map[string]string, error) {
 	metadata := make(map[string]string)
 
 	lines := strings.Split(yamlContent, "\n")
 	var currentKey string
 	var listItems []string
+	var blockScalar *blockScalarType
+	var blockLines []string
+	var blockBaseIndent int
 
-	for _, line := range lines {
-		line = strings.TrimSpace(line)
-		if line == "" || strings.HasPrefix(line, "#") {
+	for i := 0; i < len(lines); i++ {
+		line := lines[i]
+		trimmedLine := strings.TrimSpace(line)
+
+		// Skip comments
+		if strings.HasPrefix(trimmedLine, "#") {
+			continue
+		}
+
+		// If we're inside a block scalar, check if this line continues it
+		if blockScalar != nil {
+			// Check if line is indented (part of block) or not
+			if isBlankOrWhitespace(line) {
+				// Blank lines are part of the block
+				blockLines = append(blockLines, "")
+				continue
+			}
+
+			indent := countLeadingSpaces(line)
+
+			// First content line establishes the base indentation
+			if blockBaseIndent == 0 && indent > 0 {
+				blockBaseIndent = indent
+			}
+
+			// If line is indented at least as much as base, it's part of the block
+			if indent >= blockBaseIndent && blockBaseIndent > 0 {
+				// Strip the base indentation
+				blockLines = append(blockLines, line[blockBaseIndent:])
+				continue
+			}
+
+			// Line is not indented enough - block scalar is complete
+			var content string
+			if blockScalar.style == "literal" {
+				content = strings.Join(blockLines, "\n")
+			} else {
+				content = foldLines(blockLines)
+			}
+			content = applyChomping(content, blockScalar.chomping)
+			metadata[currentKey] = content
+
+			// Reset block scalar state
+			blockScalar = nil
+			blockLines = nil
+			blockBaseIndent = 0
+			currentKey = ""
+
+			// Fall through to process this line normally
+		}
+
+		// Skip empty lines when not in block scalar
+		if trimmedLine == "" {
 			continue
 		}
 
 		// Check if this is a YAML list item (starts with -)
-		if strings.HasPrefix(line, "-") {
-			if currentKey != "" {
+		if strings.HasPrefix(trimmedLine, "-") && !strings.HasPrefix(trimmedLine, "---") {
+			if currentKey != "" && blockScalar == nil {
 				// This is a list item for the current key
-				item := strings.TrimSpace(line[1:]) // Remove the - and trim
+				item := strings.TrimSpace(trimmedLine[1:]) // Remove the - and trim
 				listItems = append(listItems, item)
 				continue
 			}
-		} else if currentKey != "" && len(listItems) > 0 {
+		} else if currentKey != "" && len(listItems) > 0 && blockScalar == nil {
 			// We were collecting list items, but this line doesn't start with -
 			// so the list is complete
 			metadata[currentKey] = strings.Join(listItems, ", ")
@@ -249,12 +431,21 @@ func (p *CooklangParser) parseYAMLMetadata(yamlContent string) (map[string]strin
 			listItems = nil
 		}
 
-		// Simple key: value parsing (not full YAML)
-		if strings.Contains(line, ":") {
-			parts := strings.SplitN(line, ":", 2)
+		// Simple key: value parsing
+		if strings.Contains(trimmedLine, ":") {
+			parts := strings.SplitN(trimmedLine, ":", 2)
 			if len(parts) == 2 {
 				key := strings.TrimSpace(parts[0])
 				value := strings.TrimSpace(parts[1])
+
+				// Check for block scalar indicator
+				if bsType, isBlockScalar := parseBlockScalarIndicator(value); isBlockScalar {
+					currentKey = key
+					blockScalar = &bsType
+					blockLines = []string{}
+					blockBaseIndent = 0
+					continue
+				}
 
 				// Handle YAML array format: [ item1, item2, item3 ]
 				if strings.HasPrefix(value, "[") && strings.HasSuffix(value, "]") {
@@ -284,8 +475,20 @@ func (p *CooklangParser) parseYAMLMetadata(yamlContent string) (map[string]strin
 		}
 	}
 
+	// Handle case where block scalar is at the end of the metadata
+	if blockScalar != nil && currentKey != "" {
+		var content string
+		if blockScalar.style == "literal" {
+			content = strings.Join(blockLines, "\n")
+		} else {
+			content = foldLines(blockLines)
+		}
+		content = applyChomping(content, blockScalar.chomping)
+		metadata[currentKey] = content
+	}
+
 	// Handle case where list is at the end of the metadata
-	if currentKey != "" && len(listItems) > 0 {
+	if currentKey != "" && len(listItems) > 0 && blockScalar == nil {
 		metadata[currentKey] = strings.Join(listItems, ", ")
 	}
 

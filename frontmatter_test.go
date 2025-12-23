@@ -445,3 +445,380 @@ func TestFrontmatterEditor_NoFrontmatter(t *testing.T) {
 		t.Error("Recipe body was not preserved")
 	}
 }
+
+func TestFrontmatterEditor_MultilineBlockScalar_LiteralStrip(t *testing.T) {
+	// Test parsing literal block scalar with strip (|-)
+	content := `---
+title: Spicy Margarita
+description: |-
+  The cocktail is a
+  sweet and intensely flavoured
+  Beast.
+servings: 2
+---
+
+Mix @tequila{60%ml} with @lime juice{30%ml}.
+`
+	tmpDir := t.TempDir()
+	tmpFile := filepath.Join(tmpDir, "test.cook")
+	if err := os.WriteFile(tmpFile, []byte(content), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	editor, err := NewFrontmatterEditor(tmpFile)
+	if err != nil {
+		t.Fatalf("Failed to create editor: %v", err)
+	}
+
+	// Verify description is parsed correctly
+	description, exists := editor.GetMetadata("description")
+	if !exists {
+		t.Fatal("description should exist")
+	}
+
+	expected := "The cocktail is a\nsweet and intensely flavoured\nBeast."
+	if description != expected {
+		t.Errorf("description = %q, want %q", description, expected)
+	}
+
+	// Verify other fields are still parsed correctly
+	if title, _ := editor.GetMetadata("title"); title != "Spicy Margarita" {
+		t.Errorf("title = %q, want %q", title, "Spicy Margarita")
+	}
+	if servings, _ := editor.GetMetadata("servings"); servings != "2" {
+		t.Errorf("servings = %q, want %q", servings, "2")
+	}
+}
+
+func TestFrontmatterEditor_MultilineBlockScalar_Literal(t *testing.T) {
+	// Test parsing literal block scalar with clip (|) - keeps single trailing newline
+	content := `---
+title: Test Recipe
+description: |
+  Line 1
+  Line 2
+---
+
+Mix ingredients.
+`
+	tmpDir := t.TempDir()
+	tmpFile := filepath.Join(tmpDir, "test.cook")
+	if err := os.WriteFile(tmpFile, []byte(content), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	editor, err := NewFrontmatterEditor(tmpFile)
+	if err != nil {
+		t.Fatalf("Failed to create editor: %v", err)
+	}
+
+	description, exists := editor.GetMetadata("description")
+	if !exists {
+		t.Fatal("description should exist")
+	}
+
+	// Clip chomping keeps a single trailing newline
+	expected := "Line 1\nLine 2\n"
+	if description != expected {
+		t.Errorf("description = %q, want %q", description, expected)
+	}
+}
+
+func TestFrontmatterEditor_MultilineBlockScalar_LiteralKeep(t *testing.T) {
+	// Test parsing literal block scalar with keep (|+)
+	content := `---
+title: Test Recipe
+description: |+
+  Line 1
+  Line 2
+
+---
+
+Mix ingredients.
+`
+	tmpDir := t.TempDir()
+	tmpFile := filepath.Join(tmpDir, "test.cook")
+	if err := os.WriteFile(tmpFile, []byte(content), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	editor, err := NewFrontmatterEditor(tmpFile)
+	if err != nil {
+		t.Fatalf("Failed to create editor: %v", err)
+	}
+
+	description, exists := editor.GetMetadata("description")
+	if !exists {
+		t.Fatal("description should exist")
+	}
+
+	// Keep chomping preserves all trailing newlines
+	expected := "Line 1\nLine 2\n\n"
+	if description != expected {
+		t.Errorf("description = %q, want %q", description, expected)
+	}
+}
+
+func TestFrontmatterEditor_MultilineBlockScalar_FoldedStrip(t *testing.T) {
+	// Test parsing folded block scalar with strip (>-)
+	content := `---
+title: Test Recipe
+description: >-
+  This is a long
+  description that
+  spans multiple lines.
+---
+
+Mix ingredients.
+`
+	tmpDir := t.TempDir()
+	tmpFile := filepath.Join(tmpDir, "test.cook")
+	if err := os.WriteFile(tmpFile, []byte(content), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	editor, err := NewFrontmatterEditor(tmpFile)
+	if err != nil {
+		t.Fatalf("Failed to create editor: %v", err)
+	}
+
+	description, exists := editor.GetMetadata("description")
+	if !exists {
+		t.Fatal("description should exist")
+	}
+
+	// Folded style converts newlines to spaces, strip removes trailing
+	expected := "This is a long description that spans multiple lines."
+	if description != expected {
+		t.Errorf("description = %q, want %q", description, expected)
+	}
+}
+
+func TestFrontmatterEditor_MultilineBlockScalar_Folded(t *testing.T) {
+	// Test parsing folded block scalar with clip (>)
+	content := `---
+title: Test Recipe
+description: >
+  This is a long
+  description.
+---
+
+Mix ingredients.
+`
+	tmpDir := t.TempDir()
+	tmpFile := filepath.Join(tmpDir, "test.cook")
+	if err := os.WriteFile(tmpFile, []byte(content), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	editor, err := NewFrontmatterEditor(tmpFile)
+	if err != nil {
+		t.Fatalf("Failed to create editor: %v", err)
+	}
+
+	description, exists := editor.GetMetadata("description")
+	if !exists {
+		t.Fatal("description should exist")
+	}
+
+	// Folded style converts newlines to spaces, clip keeps single trailing newline
+	expected := "This is a long description.\n"
+	if description != expected {
+		t.Errorf("description = %q, want %q", description, expected)
+	}
+}
+
+func TestFrontmatterEditor_MultilineBlockScalar_AtEnd(t *testing.T) {
+	// Test parsing block scalar at end of frontmatter (no following field)
+	content := `---
+title: Test Recipe
+description: |-
+  This is the last
+  field in frontmatter.
+---
+
+Mix ingredients.
+`
+	tmpDir := t.TempDir()
+	tmpFile := filepath.Join(tmpDir, "test.cook")
+	if err := os.WriteFile(tmpFile, []byte(content), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	editor, err := NewFrontmatterEditor(tmpFile)
+	if err != nil {
+		t.Fatalf("Failed to create editor: %v", err)
+	}
+
+	description, exists := editor.GetMetadata("description")
+	if !exists {
+		t.Fatal("description should exist")
+	}
+
+	expected := "This is the last\nfield in frontmatter."
+	if description != expected {
+		t.Errorf("description = %q, want %q", description, expected)
+	}
+}
+
+func TestFrontmatterEditor_MultilineBlockScalar_WithBlankLines(t *testing.T) {
+	// Test parsing block scalar with blank lines inside
+	content := `---
+title: Test Recipe
+description: |-
+  First paragraph.
+
+  Second paragraph.
+---
+
+Mix ingredients.
+`
+	tmpDir := t.TempDir()
+	tmpFile := filepath.Join(tmpDir, "test.cook")
+	if err := os.WriteFile(tmpFile, []byte(content), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	editor, err := NewFrontmatterEditor(tmpFile)
+	if err != nil {
+		t.Fatalf("Failed to create editor: %v", err)
+	}
+
+	description, exists := editor.GetMetadata("description")
+	if !exists {
+		t.Fatal("description should exist")
+	}
+
+	expected := "First paragraph.\n\nSecond paragraph."
+	if description != expected {
+		t.Errorf("description = %q, want %q", description, expected)
+	}
+}
+
+func TestFrontmatterEditor_WriteMultilineDescription(t *testing.T) {
+	// Test that multi-line descriptions are written as block scalars
+	content := `---
+title: Test Recipe
+---
+
+Mix ingredients.
+`
+	tmpDir := t.TempDir()
+	tmpFile := filepath.Join(tmpDir, "test.cook")
+	if err := os.WriteFile(tmpFile, []byte(content), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	editor, err := NewFrontmatterEditor(tmpFile)
+	if err != nil {
+		t.Fatalf("Failed to create editor: %v", err)
+	}
+
+	// Set a multi-line description
+	multilineDesc := "Line 1\nLine 2\nLine 3"
+	if err := editor.SetMetadata("description", multilineDesc); err != nil {
+		t.Fatalf("SetMetadata failed: %v", err)
+	}
+
+	// Get the updated content
+	updatedContent := editor.GetUpdatedContent()
+
+	// Verify it uses block scalar syntax
+	if !strings.Contains(updatedContent, "description: |-") {
+		t.Errorf("Multi-line description should use |- block scalar syntax, got:\n%s", updatedContent)
+	}
+
+	// Verify the indented lines are present
+	if !strings.Contains(updatedContent, "  Line 1") {
+		t.Error("Block scalar content should be indented with 2 spaces")
+	}
+}
+
+func TestFrontmatterEditor_WriteSingleLineDescription(t *testing.T) {
+	// Test that single-line descriptions stay inline
+	content := `---
+title: Test Recipe
+---
+
+Mix ingredients.
+`
+	tmpDir := t.TempDir()
+	tmpFile := filepath.Join(tmpDir, "test.cook")
+	if err := os.WriteFile(tmpFile, []byte(content), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	editor, err := NewFrontmatterEditor(tmpFile)
+	if err != nil {
+		t.Fatalf("Failed to create editor: %v", err)
+	}
+
+	// Set a single-line description
+	if err := editor.SetMetadata("description", "A simple recipe"); err != nil {
+		t.Fatalf("SetMetadata failed: %v", err)
+	}
+
+	// Get the updated content
+	updatedContent := editor.GetUpdatedContent()
+
+	// Verify it stays inline
+	if !strings.Contains(updatedContent, "description: A simple recipe") {
+		t.Errorf("Single-line description should stay inline, got:\n%s", updatedContent)
+	}
+
+	// Verify it does NOT use block scalar syntax
+	if strings.Contains(updatedContent, "description: |-") {
+		t.Error("Single-line description should not use block scalar syntax")
+	}
+}
+
+func TestFrontmatterEditor_MultilineRoundTrip(t *testing.T) {
+	// Test that multi-line descriptions survive a round-trip (parse -> save -> parse)
+	content := `---
+title: Spicy Margarita
+description: |-
+  The cocktail is a
+  sweet and intensely flavoured
+  Beast.
+---
+
+Mix @tequila{60%ml} with @lime juice{30%ml}.
+`
+	tmpDir := t.TempDir()
+	tmpFile := filepath.Join(tmpDir, "test.cook")
+	if err := os.WriteFile(tmpFile, []byte(content), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	// First parse
+	editor1, err := NewFrontmatterEditor(tmpFile)
+	if err != nil {
+		t.Fatalf("Failed to create editor: %v", err)
+	}
+
+	originalDesc, _ := editor1.GetMetadata("description")
+
+	// Save
+	if err := editor1.Save(); err != nil {
+		t.Fatalf("Save failed: %v", err)
+	}
+
+	// Parse again
+	editor2, err := NewFrontmatterEditor(tmpFile)
+	if err != nil {
+		t.Fatalf("Failed to reload editor: %v", err)
+	}
+
+	reloadedDesc, _ := editor2.GetMetadata("description")
+
+	// Verify content is preserved
+	if originalDesc != reloadedDesc {
+		t.Errorf("Round-trip failed:\nOriginal: %q\nReloaded: %q", originalDesc, reloadedDesc)
+	}
+
+	// Verify recipe body is preserved
+	savedContent, _ := os.ReadFile(tmpFile)
+	if !strings.Contains(string(savedContent), "Mix @tequila{60%ml} with @lime juice{30%ml}") {
+		t.Error("Recipe body was not preserved")
+	}
+}
