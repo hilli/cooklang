@@ -324,6 +324,29 @@ type Ingredient struct {
 	CooklangRenderable
 }
 
+// NewIngredient creates a new Ingredient with proper unit typing for conversion operations.
+// This constructor ensures that the TypedUnit field is properly initialized, which is required
+// for unit conversion methods like ConvertTo and ConvertToSystem to work correctly.
+//
+// Parameters:
+//   - name: The ingredient name (e.g., "vodka", "sugar")
+//   - quantity: The amount (-1 means "some" unspecified amount)
+//   - unit: The unit of measurement (e.g., "ml", "oz", "g", "cups")
+//
+// Example:
+//
+//	ing := cooklang.NewIngredient("vodka", 50, "ml")
+//	converted := ing.ConvertToSystem(cooklang.UnitSystemUS)
+//	fmt.Printf("%v %s\n", converted.Quantity, converted.Unit) // "1.69 oz"
+func NewIngredient(name string, quantity float32, unit string) *Ingredient {
+	return &Ingredient{
+		Name:      name,
+		Quantity:  quantity,
+		Unit:      unit,
+		TypedUnit: CreateTypedUnit(unit),
+	}
+}
+
 // Instruction represents a text instruction within a recipe step.
 // This is plain text that provides cooking directions.
 type Instruction struct {
@@ -527,8 +550,14 @@ func ParseString(content string) (*Recipe, error) {
 	return ToCooklangRecipe(recipe), nil
 }
 
-// createTypedUnit attempts to find a unit in go-units or creates a new one if not found
-func createTypedUnit(unitStr string) *units.Unit {
+// CreateTypedUnit attempts to find a unit in go-units or creates a new one if not found.
+// This function is used internally when parsing Cooklang content and can be used externally
+// when programmatically creating Ingredient structs that need unit conversion support.
+//
+// If the unit string is empty, nil is returned.
+// If the unit is found in the go-units library, a pointer to that unit is returned.
+// Otherwise, a new unit is created with the given string as both name and symbol.
+func CreateTypedUnit(unitStr string) *units.Unit {
 	if unitStr == "" {
 		return nil
 	}
@@ -627,7 +656,7 @@ func ToCooklangRecipe(pRecipe *parser.Recipe) *Recipe {
 					Name:       component.Name,
 					Quantity:   quant,
 					Unit:       component.Unit,
-					TypedUnit:  createTypedUnit(component.Unit),
+					TypedUnit:  CreateTypedUnit(component.Unit),
 					Annotation: component.Value,
 				}
 			case "cookware":
@@ -758,7 +787,7 @@ func (i *Ingredient) ConvertTo(targetUnitStr string) (*Ingredient, error) {
 	if isCookingUnit(i.Unit) && isCookingUnit(targetUnitStr) {
 		convertedValue, err := convertCookingUnit(float64(i.Quantity), i.Unit, targetUnitStr)
 		if err == nil {
-			targetUnit := createTypedUnit(targetUnitStr)
+			targetUnit := CreateTypedUnit(targetUnitStr)
 			converted := &Ingredient{
 				Name:           i.Name,
 				Quantity:       float32(convertedValue),
@@ -1013,7 +1042,7 @@ func (il *IngredientList) ConsolidateByName(targetUnit string) (*IngredientList,
 		// Check if we should use the target unit or find a common unit
 		if targetUnit != "" {
 			unitToUse = targetUnit
-			typedUnit = createTypedUnit(targetUnit)
+			typedUnit = CreateTypedUnit(targetUnit)
 			hasConvertibleUnits = true
 		} else {
 			// Use the unit from the first ingredient that has a unit
