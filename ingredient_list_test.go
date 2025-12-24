@@ -168,7 +168,7 @@ func TestUnitTypeIdentification(t *testing.T) {
 			Name:      "test",
 			Quantity:  1,
 			Unit:      test.unit,
-			TypedUnit: createTypedUnit(test.unit),
+			TypedUnit: CreateTypedUnit(test.unit),
 		}
 
 		unitType := ingredient.GetUnitType()

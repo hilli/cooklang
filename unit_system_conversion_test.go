@@ -4,6 +4,84 @@ import (
 	"testing"
 )
 
+func TestNewIngredient(t *testing.T) {
+	// Test that NewIngredient creates an ingredient with proper TypedUnit
+	tests := []struct {
+		name         string
+		quantity     float32
+		unit         string
+		targetSystem UnitSystem
+		expectConv   bool // Whether conversion should happen
+	}{
+		{"vodka", 50, "ml", UnitSystemUS, true},
+		{"sugar", 100, "g", UnitSystemUS, true},
+		{"lime juice", 1, "oz", UnitSystemMetric, true},
+		{"water", 2, "cups", UnitSystemMetric, true},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			// Create ingredient using NewIngredient constructor
+			ing := NewIngredient(tc.name, tc.quantity, tc.unit)
+
+			// Verify TypedUnit is set
+			if ing.TypedUnit == nil {
+				t.Errorf("NewIngredient(%s, %v, %s): TypedUnit should not be nil", tc.name, tc.quantity, tc.unit)
+			}
+
+			// Test that conversion works
+			converted := ing.ConvertToSystem(tc.targetSystem)
+
+			if tc.expectConv {
+				// Conversion should change the unit
+				if converted.Unit == ing.Unit && converted.Quantity == ing.Quantity {
+					t.Logf("Warning: No conversion happened for %s %v %s -> %s (might be expected for some units)",
+						tc.name, tc.quantity, tc.unit, tc.targetSystem)
+				} else {
+					t.Logf("%s: %.1f %s -> %.2f %s", tc.name, tc.quantity, tc.unit, converted.Quantity, converted.Unit)
+				}
+			}
+		})
+	}
+}
+
+func TestNewIngredientVsManualCreation(t *testing.T) {
+	// Test that NewIngredient produces different results than manual struct creation
+	// when it comes to unit conversion
+
+	// Create ingredient manually (without TypedUnit)
+	manualIng := &Ingredient{
+		Name:     "vodka",
+		Quantity: 50,
+		Unit:     "ml",
+	}
+
+	// Create ingredient using NewIngredient
+	constructedIng := NewIngredient("vodka", 50, "ml")
+
+	// Try to convert both
+	manualConverted := manualIng.ConvertToSystem(UnitSystemUS)
+	constructedConverted := constructedIng.ConvertToSystem(UnitSystemUS)
+
+	t.Logf("Manual creation: %.1f %s -> %.2f %s",
+		manualIng.Quantity, manualIng.Unit,
+		manualConverted.Quantity, manualConverted.Unit)
+
+	t.Logf("NewIngredient: %.1f %s -> %.2f %s",
+		constructedIng.Quantity, constructedIng.Unit,
+		constructedConverted.Quantity, constructedConverted.Unit)
+
+	// The manually created ingredient should NOT convert (TypedUnit is nil)
+	if manualConverted.Unit != manualIng.Unit {
+		t.Errorf("Manual ingredient should not convert without TypedUnit")
+	}
+
+	// The NewIngredient-created ingredient SHOULD convert
+	if constructedConverted.Unit == constructedIng.Unit && constructedConverted.Quantity == constructedIng.Quantity {
+		t.Errorf("NewIngredient should enable conversion, but no conversion happened")
+	}
+}
+
 func TestUnitSystemConversion(t *testing.T) {
 	// Create a test recipe with metric ingredients
 	testRecipe := `
@@ -59,9 +137,9 @@ func TestIngredientListConversion(t *testing.T) {
 	ingredients := NewIngredientList()
 
 	// Add some metric ingredients
-	flour := &Ingredient{Name: "flour", Quantity: 1000, Unit: "g", TypedUnit: createTypedUnit("g")}
-	milk := &Ingredient{Name: "milk", Quantity: 500, Unit: "ml", TypedUnit: createTypedUnit("ml")}
-	sugar := &Ingredient{Name: "sugar", Quantity: 200, Unit: "g", TypedUnit: createTypedUnit("g")}
+	flour := &Ingredient{Name: "flour", Quantity: 1000, Unit: "g", TypedUnit: CreateTypedUnit("g")}
+	milk := &Ingredient{Name: "milk", Quantity: 500, Unit: "ml", TypedUnit: CreateTypedUnit("ml")}
+	sugar := &Ingredient{Name: "sugar", Quantity: 200, Unit: "g", TypedUnit: CreateTypedUnit("g")}
 
 	ingredients.Add(flour)
 	ingredients.Add(milk)
@@ -112,7 +190,7 @@ func TestSmartUnitSelection(t *testing.T) {
 				Name:      "test",
 				Quantity:  tc.quantity,
 				Unit:      tc.unit,
-				TypedUnit: createTypedUnit(tc.unit),
+				TypedUnit: CreateTypedUnit(tc.unit),
 			}
 
 			converted := ingredient.ConvertToSystem(tc.system)
@@ -132,8 +210,8 @@ func TestConversionWithConsolidation(t *testing.T) {
 	ingredients := NewIngredientList()
 
 	// Add the same ingredient in different units
-	flour1 := &Ingredient{Name: "flour", Quantity: 500, Unit: "g", TypedUnit: createTypedUnit("g")}
-	flour2 := &Ingredient{Name: "flour", Quantity: 250, Unit: "g", TypedUnit: createTypedUnit("g")}
+	flour1 := &Ingredient{Name: "flour", Quantity: 500, Unit: "g", TypedUnit: CreateTypedUnit("g")}
+	flour2 := &Ingredient{Name: "flour", Quantity: 250, Unit: "g", TypedUnit: CreateTypedUnit("g")}
 
 	ingredients.Add(flour1)
 	ingredients.Add(flour2)

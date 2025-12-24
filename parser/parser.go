@@ -267,12 +267,13 @@ func parseBlockScalarIndicator(value string) (blockScalarType, bool) {
 func countLeadingSpaces(line string) int {
 	count := 0
 	for _, ch := range line {
-		if ch == ' ' {
+		switch ch {
+		case ' ':
 			count++
-		} else if ch == '\t' {
+		case '\t':
 			count += 2 // Treat tab as 2 spaces
-		} else {
-			break
+		default:
+			return count
 		}
 	}
 	return count
