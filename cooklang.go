@@ -238,12 +238,15 @@ func (i Ingredient) Render() string {
 
 // RenderDisplay returns ingredient in plain text format suitable for display.
 // Examples: "2 cups flour", "500 g flour", "some salt", "flour"
+// Uses bartender-friendly fraction formatting (e.g., "1/2 oz" instead of "0.5 oz")
 func (i Ingredient) RenderDisplay() string {
 	var result string
 	if i.Quantity > 0 && i.Unit != "" {
-		result = fmt.Sprintf("%g %s %s", i.Quantity, i.Unit, i.Name)
+		qtyStr := FormatAsFractionDefault(float64(i.Quantity))
+		result = fmt.Sprintf("%s %s %s", qtyStr, i.Unit, i.Name)
 	} else if i.Quantity > 0 {
-		result = fmt.Sprintf("%g %s", i.Quantity, i.Name)
+		qtyStr := FormatAsFractionDefault(float64(i.Quantity))
+		result = fmt.Sprintf("%s %s", qtyStr, i.Name)
 	} else if i.Quantity == -1 {
 		result = fmt.Sprintf("some %s", i.Name)
 	} else {
@@ -1306,6 +1309,125 @@ func (i *Ingredient) getBestUnit(quantity float32, defaultUnit string, alternati
 func (il *IngredientList) ConvertToSystemWithConsolidation(system UnitSystem) (*IngredientList, error) {
 	converted := il.ConvertToSystem(system)
 	return converted.ConsolidateByName("")
+}
+
+// ConvertToSystemBartender converts all ingredients using bartender-friendly conversions
+// This uses practical bartender measurements (30ml/oz instead of 29.5735) and
+// smart unit selection (dashes for tiny amounts, friendly fractions)
+func (il *IngredientList) ConvertToSystemBartender(system UnitSystem) *IngredientList {
+	result := NewIngredientList()
+
+	for _, ingredient := range il.Ingredients {
+		converted := ingredient.ConvertToSystemBartender(system)
+		result.Add(converted)
+	}
+
+	return result
+}
+
+// ConvertToSystemBartender converts an ingredient using bartender-friendly conversions
+// It uses practical measurements like dashes for very small amounts, and skips
+// conversion if the ingredient is already in the target system (unless it needs
+// smart unit selection like converting tiny oz to dashes)
+func (i *Ingredient) ConvertToSystemBartender(system UnitSystem) *Ingredient {
+	// Skip conversion for ingredients without quantities
+	if i.Quantity == -1 {
+		return &Ingredient{
+			Name:           i.Name,
+			Quantity:       i.Quantity,
+			Unit:           i.Unit,
+			TypedUnit:      i.TypedUnit,
+			Subinstruction: i.Subinstruction,
+			Annotation:     i.Annotation,
+			NextComponent:  i.NextComponent,
+		}
+	}
+
+	// Get unit info to determine ml value for smart unit selection
+	unitInfo := GetCocktailUnit(i.Unit)
+
+	// For cocktail-specific units (dash, splash, etc.), never convert
+	if IsCocktailSpecificUnit(i.Unit) {
+		return &Ingredient{
+			Name:           i.Name,
+			Quantity:       i.Quantity,
+			Unit:           i.Unit,
+			TypedUnit:      i.TypedUnit,
+			Subinstruction: i.Subinstruction,
+			Annotation:     i.Annotation,
+			NextComponent:  i.NextComponent,
+		}
+	}
+
+	// Calculate ml value for smart unit selection decisions
+	var mlValue float64
+	if unitInfo != nil && unitInfo.MlValue > 0 {
+		mlValue = float64(i.Quantity) * unitInfo.MlValue
+	}
+
+	// IMPORTANT: For very small amounts (≤3ml), always convert to dashes
+	// regardless of whether we're staying in the same unit system.
+	// This handles awkward fractions like "1/12 fl oz" → "3 dashes"
+	if mlValue > 0 && mlValue <= 3 {
+		result := SelectBestUnit(mlValue, system)
+		return &Ingredient{
+			Name:           i.Name,
+			Quantity:       float32(result.Value),
+			Unit:           result.Unit,
+			TypedUnit:      nil,
+			Subinstruction: i.Subinstruction,
+			Annotation:     i.Annotation,
+			NextComponent:  i.NextComponent,
+		}
+	}
+
+	// For larger amounts in the same system, skip conversion to preserve original
+	sourceSystem := DetectUnitSystemFromUnit(i.Unit)
+	if sourceSystem == system && system != UnitSystemUnknown {
+		return &Ingredient{
+			Name:           i.Name,
+			Quantity:       i.Quantity,
+			Unit:           i.Unit,
+			TypedUnit:      i.TypedUnit,
+			Subinstruction: i.Subinstruction,
+			Annotation:     i.Annotation,
+			NextComponent:  i.NextComponent,
+		}
+	}
+
+	// Use bartender conversion for volume units
+	if unitInfo != nil && unitInfo.MlValue > 0 {
+		result := ConvertVolumeBartender(float64(i.Quantity), i.Unit, system)
+		return &Ingredient{
+			Name:           i.Name,
+			Quantity:       float32(result.Value),
+			Unit:           result.Unit,
+			TypedUnit:      nil, // Clear typed unit since we're using bartender conversion
+			Subinstruction: i.Subinstruction,
+			Annotation:     i.Annotation,
+			NextComponent:  i.NextComponent,
+		}
+	}
+
+	// Fall back to standard conversion for non-cocktail units
+	return i.ConvertToSystem(system)
+}
+
+// FormatQuantityBartender formats an ingredient's quantity using bartender-friendly formatting
+// (fractions instead of decimals, pluralization)
+func (i *Ingredient) FormatQuantityBartender() string {
+	if i.Quantity == -1 {
+		return "some"
+	}
+	if i.Quantity == 0 {
+		return ""
+	}
+
+	result := SmartUnitResult{
+		Value: float64(i.Quantity),
+		Unit:  i.Unit,
+	}
+	return FormatBartenderValue(result)
 }
 
 // GetShoppingListInSystem returns a shopping list map with ingredients converted to the target system
