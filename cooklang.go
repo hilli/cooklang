@@ -237,8 +237,9 @@ func (i Ingredient) Render() string {
 }
 
 // RenderDisplay returns ingredient in plain text format suitable for display.
-// Examples: "2 cups flour", "500 g flour", "some salt", "flour"
+// Examples: "2 cups flour", "500 g flour", "salt"
 // Uses bartender-friendly fraction formatting (e.g., "1/2 oz" instead of "0.5 oz")
+// When quantity is unspecified (e.g., @salt{}), returns just the ingredient name.
 func (i Ingredient) RenderDisplay() string {
 	var result string
 	if i.Quantity > 0 && i.Unit != "" {
@@ -247,9 +248,8 @@ func (i Ingredient) RenderDisplay() string {
 	} else if i.Quantity > 0 {
 		qtyStr := FormatAsFractionDefault(float64(i.Quantity))
 		result = fmt.Sprintf("%s %s", qtyStr, i.Name)
-	} else if i.Quantity == -1 {
-		result = fmt.Sprintf("some %s", i.Name)
 	} else {
+		// Quantity == -1 (unspecified) or 0: just use the ingredient name
 		result = i.Name
 	}
 	return result
