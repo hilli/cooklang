@@ -281,12 +281,21 @@ func (t Timer) Render() string {
 }
 
 // RenderDisplay returns timer in plain text format suitable for display.
-// Returns the timer name if available, otherwise the duration.
+// Returns the duration with unit if available, or just the duration.
+// If the timer has a name but no duration, returns the name.
 func (t Timer) RenderDisplay() string {
+	// If there's a duration, show it (optionally with unit)
+	if t.Duration != "" {
+		if t.Unit != "" {
+			return t.Duration + " " + t.Unit
+		}
+		return t.Duration
+	}
+	// Fall back to name if no duration
 	if t.Name != "" {
 		return t.Name
 	}
-	return t.Duration
+	return ""
 }
 
 // Render returns the Cooklang syntax representation of this cookware.
@@ -675,6 +684,7 @@ func ToCooklangRecipe(pRecipe *parser.Recipe) *Recipe {
 			case "timer":
 				stepComp = &Timer{
 					Duration:   component.Quantity,
+					Unit:       component.Unit,
 					Name:       component.Name,
 					Annotation: component.Value,
 				}
