@@ -227,3 +227,105 @@ func TestNewlineLiteralNormalization(t *testing.T) {
 		})
 	}
 }
+
+// TestBlockComment tests block comment tokenization [- comment -]
+func TestBlockComment(t *testing.T) {
+	tests := []struct {
+		name           string
+		input          string
+		expectedTokens []struct {
+			tokenType token.TokenType
+			literal   string
+		}
+	}{
+		{
+			name:  "simple block comment",
+			input: "[- this is a comment -]",
+			expectedTokens: []struct {
+				tokenType token.TokenType
+				literal   string
+			}{
+				{token.BLOCK_COMMENT, "this is a comment"},
+				{token.EOF, ""},
+			},
+		},
+		{
+			name:  "block comment inline with text",
+			input: "Add [- TODO change units -] milk",
+			expectedTokens: []struct {
+				tokenType token.TokenType
+				literal   string
+			}{
+				{token.IDENT, "Add"},
+				{token.WHITESPACE, " "},
+				{token.BLOCK_COMMENT, "TODO change units"},
+				{token.WHITESPACE, " "},
+				{token.IDENT, "milk"},
+				{token.EOF, ""},
+			},
+		},
+		{
+			name:  "block comment with ingredient",
+			input: "Add @milk{4%cup} [- TODO change units to litres -], keep mixing",
+			expectedTokens: []struct {
+				tokenType token.TokenType
+				literal   string
+			}{
+				{token.IDENT, "Add"},
+				{token.WHITESPACE, " "},
+				{token.INGREDIENT, "@"},
+				{token.IDENT, "milk"},
+				{token.LBRACE, "{"},
+				{token.IDENT, "4"}, // Numbers are tokenized as IDENT in this context
+				{token.PERCENT, "%"},
+				{token.IDENT, "cup"},
+				{token.RBRACE, "}"},
+				{token.WHITESPACE, " "},
+				{token.BLOCK_COMMENT, "TODO change units to litres"},
+				{token.COMMA, ","},
+				{token.WHITESPACE, " "},
+				{token.IDENT, "keep"},
+				{token.WHITESPACE, " "},
+				{token.IDENT, "mixing"},
+				{token.EOF, ""},
+			},
+		},
+		{
+			name:  "empty block comment",
+			input: "[-  -]",
+			expectedTokens: []struct {
+				tokenType token.TokenType
+				literal   string
+			}{
+				{token.BLOCK_COMMENT, ""},
+				{token.EOF, ""},
+			},
+		},
+		{
+			name:  "block comment with dashes inside",
+			input: "[- comment -- with dashes -]",
+			expectedTokens: []struct {
+				tokenType token.TokenType
+				literal   string
+			}{
+				{token.BLOCK_COMMENT, "comment -- with dashes"},
+				{token.EOF, ""},
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			l := New(tt.input)
+			for i, expected := range tt.expectedTokens {
+				tok := l.NextToken()
+				if tok.Type != expected.tokenType {
+					t.Errorf("token[%d]: expected type %s, got %s", i, expected.tokenType, tok.Type)
+				}
+				if tok.Literal != expected.literal {
+					t.Errorf("token[%d]: expected literal %q, got %q", i, expected.literal, tok.Literal)
+				}
+			}
+		})
+	}
+}

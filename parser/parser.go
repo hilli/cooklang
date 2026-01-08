@@ -158,6 +158,16 @@ func (p *CooklangParser) parseTokens(l *lexer.Lexer) (*Recipe, error) {
 			}
 			// In canonical mode, ignore comments
 
+		case token.BLOCK_COMMENT:
+			// Only create block comment components in extended mode
+			if p.ExtendedMode {
+				currentStep.Components = append(currentStep.Components, Component{
+					Type:  "blockComment",
+					Value: tok.Literal,
+				})
+			}
+			// In canonical mode, ignore block comments
+
 		case token.INGREDIENT:
 			// Parse ingredient
 			ingredient, err := p.parseIngredient(l)

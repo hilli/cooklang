@@ -1,6 +1,7 @@
 package lexer
 
 import (
+	"strings"
 	"unicode"
 	"unicode/utf8"
 
@@ -61,6 +62,13 @@ func (l *Lexer) NextToken() token.Token {
 	}
 
 	switch l.ch {
+	case '[':
+		// Check for block comment opening [-
+		if l.peekChar() == '-' {
+			return l.readBlockComment()
+		}
+		// Otherwise, treat as regular text (ILLEGAL token will be handled as text)
+		tok = newToken(token.ILLEGAL, l.ch)
 	case '\n':
 		tok = newToken(token.NEWLINE, '\n')
 		l.readChar()
@@ -361,4 +369,41 @@ func (l *Lexer) PeekToken() token.Token {
 func (l *Lexer) PutBackToken(tok token.Token) {
 	// Add to the beginning of the buffer
 	l.tokenBuffer = append([]token.Token{tok}, l.tokenBuffer...)
+}
+
+// readBlockComment reads a block comment starting with [- and ending with -]
+func (l *Lexer) readBlockComment() token.Token {
+	// Skip the opening [-
+	l.readChar() // skip [
+	l.readChar() // skip -
+
+	// Read the comment content until -]
+	start := l.position
+	for {
+		if l.ch == 0 {
+			// EOF without closing -] - return what we have as a comment
+			break
+		}
+
+		if l.ch == '-' && l.peekChar() == ']' {
+			// Found closing -]
+			break
+		}
+
+		l.readChar()
+	}
+
+	// Extract the comment content
+	commentContent := l.input[start:l.position]
+
+	// Skip the closing -] if we found it
+	if l.ch == '-' && l.peekChar() == ']' {
+		l.readChar() // skip -
+		l.readChar() // skip ]
+	}
+
+	return token.Token{
+		Type:    token.BLOCK_COMMENT,
+		Literal: strings.TrimSpace(commentContent),
+	}
 }
