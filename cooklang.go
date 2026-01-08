@@ -1669,3 +1669,142 @@ func (sl *ShoppingList) Count() int {
 	}
 	return len(sl.Ingredients.Ingredients)
 }
+
+// Scale creates a new recipe with all ingredient quantities scaled by the given factor.
+// This is useful for adjusting recipe servings or batch cooking.
+// Timers, cookware, and instructions are copied unchanged.
+// Ingredients with "some" quantity (-1) are not scaled.
+//
+// The servings metadata is also updated if present.
+//
+// Parameters:
+//   - factor: The scaling factor (e.g., 2.0 for double, 0.5 for half)
+//
+// Returns:
+//   - *Recipe: A new recipe with scaled quantities
+//
+// Example:
+//
+//	recipe, _ := cooklang.ParseFile("cookies.cook")
+//	doubled := recipe.Scale(2.0)  // Double all quantities
+//	halved := recipe.Scale(0.5)   // Half all quantities
+func (r *Recipe) Scale(factor float64) *Recipe {
+	// Create a copy of the recipe
+	scaledRecipe := &Recipe{
+		Title:       r.Title,
+		Cuisine:     r.Cuisine,
+		Date:        r.Date,
+		Description: r.Description,
+		Difficulty:  r.Difficulty,
+		PrepTime:    r.PrepTime,
+		TotalTime:   r.TotalTime,
+		Author:      r.Author,
+		Images:      r.Images,
+		Tags:        r.Tags,
+		Metadata:    make(map[string]string),
+	}
+
+	// Copy metadata
+	for k, v := range r.Metadata {
+		scaledRecipe.Metadata[k] = v
+	}
+
+	// Update servings if present
+	if r.Servings > 0 {
+		scaledRecipe.Servings = r.Servings * float32(factor)
+		scaledRecipe.Metadata["servings"] = strconv.FormatFloat(float64(scaledRecipe.Servings), 'f', -1, 32)
+	}
+
+	// Scale the steps and ingredients
+	var lastStep *Step
+	for step := r.FirstStep; step != nil; step = step.NextStep {
+		newStep := &Step{}
+
+		// Copy and scale components
+		var lastComponent StepComponent
+		for component := step.FirstComponent; component != nil; component = component.GetNext() {
+			var newComponent StepComponent
+
+			switch comp := component.(type) {
+			case *Ingredient:
+				// Scale the ingredient
+				newQty := comp.Quantity
+				if newQty > 0 { // Don't scale "some" (-1) or zero quantities
+					newQty = comp.Quantity * float32(factor)
+				}
+				newComponent = &Ingredient{
+					Name:           comp.Name,
+					Quantity:       newQty,
+					Unit:           comp.Unit,
+					TypedUnit:      comp.TypedUnit,
+					Subinstruction: comp.Subinstruction,
+					Annotation:     comp.Annotation,
+				}
+
+			case *Timer:
+				// Copy timer unchanged
+				newComponent = &Timer{
+					Name:       comp.Name,
+					Duration:   comp.Duration,
+					Unit:       comp.Unit,
+					Text:       comp.Text,
+					Annotation: comp.Annotation,
+				}
+
+			case *Cookware:
+				// Copy cookware unchanged
+				newComponent = &Cookware{
+					Name:       comp.Name,
+					Quantity:   comp.Quantity,
+					Annotation: comp.Annotation,
+				}
+
+			case *Instruction:
+				// Copy instruction unchanged
+				newComponent = &Instruction{
+					Text: comp.Text,
+				}
+			}
+
+			// Link components
+			if lastComponent == nil {
+				newStep.FirstComponent = newComponent
+			} else {
+				lastComponent.SetNext(newComponent)
+			}
+			lastComponent = newComponent
+		}
+
+		// Link steps
+		if scaledRecipe.FirstStep == nil {
+			scaledRecipe.FirstStep = newStep
+		} else {
+			lastStep.NextStep = newStep
+		}
+		lastStep = newStep
+	}
+
+	return scaledRecipe
+}
+
+// ScaleToServings creates a new recipe scaled to the target number of servings.
+// If the recipe doesn't have servings specified, it assumes 1 serving.
+//
+// Parameters:
+//   - targetServings: The desired number of servings
+//
+// Returns:
+//   - *Recipe: A new recipe scaled to the target servings
+//
+// Example:
+//
+//	recipe, _ := cooklang.ParseFile("cookies.cook") // 12 servings
+//	scaled := recipe.ScaleToServings(24)            // Double the recipe
+func (r *Recipe) ScaleToServings(targetServings float64) *Recipe {
+	originalServings := float64(r.Servings)
+	if originalServings <= 0 {
+		originalServings = 1 // Assume 1 serving if not specified
+	}
+	factor := targetServings / originalServings
+	return r.Scale(factor)
+}

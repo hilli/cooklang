@@ -136,19 +136,12 @@ func displayIngredientList(ingredients *cooklang.IngredientList) {
 		return
 	}
 
-	fmt.Printf("🥕 Ingredients (%d):\n", len(ingredients.Ingredients))
+	fmt.Printf("Ingredients (%d):\n", len(ingredients.Ingredients))
 	for i, ing := range ingredients.Ingredients {
-		if ing.Quantity == -1 {
-			fmt.Printf("  %2d. %s (some)\n", i+1, ing.Name)
-		} else if ing.Unit == "" {
-			fmt.Printf("  %2d. %s: %.2g\n", i+1, ing.Name, ing.Quantity)
-		} else {
-			// Format quantity nicely
-			if ing.Quantity == float32(int(ing.Quantity)) {
-				fmt.Printf("  %2d. %s: %.0f %s\n", i+1, ing.Name, ing.Quantity, ing.Unit)
-			} else {
-				fmt.Printf("  %2d. %s: %.2g %s\n", i+1, ing.Name, ing.Quantity, ing.Unit)
-			}
+		display := ing.RenderDisplay()
+		if ing.Annotation != "" {
+			display += fmt.Sprintf(" (%s)", ing.Annotation)
 		}
+		fmt.Printf("  %2d. %s\n", i+1, display)
 	}
 }
