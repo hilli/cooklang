@@ -377,19 +377,9 @@ func (l *Lexer) readBlockComment() token.Token {
 	l.readChar() // skip [
 	l.readChar() // skip -
 
-	// Read the comment content until -]
+	// Read the comment content until -] or EOF
 	start := l.position
-	for {
-		if l.ch == 0 {
-			// EOF without closing -] - return what we have as a comment
-			break
-		}
-
-		if l.ch == '-' && l.peekChar() == ']' {
-			// Found closing -]
-			break
-		}
-
+	for l.ch != 0 && (l.ch != '-' || l.peekChar() != ']') {
 		l.readChar()
 	}
 
