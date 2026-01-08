@@ -7,15 +7,17 @@ import (
 )
 
 func TestNextToken(t *testing.T) {
-	input := `=@a~{}#c{}(),/5;`
+	// Note: = at start of line is now a SECTION_HEADER, so we put it mid-line to test SECTION token
+	input := `a=@b~{}#c{}(),/5;`
 
 	tests := []struct {
 		expectedType    token.TokenType
 		expectedLiteral string
 	}{
+		{token.IDENT, "a"},
 		{token.SECTION, "="},
 		{token.INGREDIENT, "@"},
-		{token.IDENT, "a"},
+		{token.IDENT, "b"},
 		{token.COOKTIME, "~"},
 		{token.LBRACE, "{"},
 		{token.RBRACE, "}"},
@@ -223,6 +225,130 @@ func TestNewlineLiteralNormalization(t *testing.T) {
 			}
 			if tok.Literal != "\n" {
 				t.Errorf("expected newline literal to be normalized to \"\\n\", got %q", tok.Literal)
+			}
+		})
+	}
+}
+
+// TestSectionHeader tests section header tokenization
+func TestSectionHeader(t *testing.T) {
+	tests := []struct {
+		name           string
+		input          string
+		expectedTokens []struct {
+			tokenType token.TokenType
+			literal   string
+		}
+	}{
+		{
+			name:  "simple section with single =",
+			input: "= Dough",
+			expectedTokens: []struct {
+				tokenType token.TokenType
+				literal   string
+			}{
+				{token.SECTION_HEADER, "Dough"},
+				{token.EOF, ""},
+			},
+		},
+		{
+			name:  "section with double =",
+			input: "== Filling",
+			expectedTokens: []struct {
+				tokenType token.TokenType
+				literal   string
+			}{
+				{token.SECTION_HEADER, "Filling"},
+				{token.EOF, ""},
+			},
+		},
+		{
+			name:  "section with trailing =",
+			input: "== Filling ==",
+			expectedTokens: []struct {
+				tokenType token.TokenType
+				literal   string
+			}{
+				{token.SECTION_HEADER, "Filling"},
+				{token.EOF, ""},
+			},
+		},
+		{
+			name:  "section with triple =",
+			input: "=== Section Name ===",
+			expectedTokens: []struct {
+				tokenType token.TokenType
+				literal   string
+			}{
+				{token.SECTION_HEADER, "Section Name"},
+				{token.EOF, ""},
+			},
+		},
+		{
+			name:  "section with multi-word name",
+			input: "= Making the Dough",
+			expectedTokens: []struct {
+				tokenType token.TokenType
+				literal   string
+			}{
+				{token.SECTION_HEADER, "Making the Dough"},
+				{token.EOF, ""},
+			},
+		},
+		{
+			name:  "empty section (just =)",
+			input: "=",
+			expectedTokens: []struct {
+				tokenType token.TokenType
+				literal   string
+			}{
+				{token.SECTION_HEADER, ""},
+				{token.EOF, ""},
+			},
+		},
+		{
+			name:  "section followed by newline and content",
+			input: "= Dough\nMix flour",
+			expectedTokens: []struct {
+				tokenType token.TokenType
+				literal   string
+			}{
+				{token.SECTION_HEADER, "Dough"},
+				{token.NEWLINE, "\n"},
+				{token.IDENT, "Mix"},
+				{token.WHITESPACE, " "},
+				{token.IDENT, "flour"},
+				{token.EOF, ""},
+			},
+		},
+		{
+			name:  "section after content (should be SECTION_HEADER at start of line)",
+			input: "Mix flour\n= Filling",
+			expectedTokens: []struct {
+				tokenType token.TokenType
+				literal   string
+			}{
+				{token.IDENT, "Mix"},
+				{token.WHITESPACE, " "},
+				{token.IDENT, "flour"},
+				{token.NEWLINE, "\n"},
+				{token.SECTION_HEADER, "Filling"},
+				{token.EOF, ""},
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			l := New(tt.input)
+			for i, expected := range tt.expectedTokens {
+				tok := l.NextToken()
+				if tok.Type != expected.tokenType {
+					t.Errorf("token[%d]: expected type %s, got %s", i, expected.tokenType, tok.Type)
+				}
+				if tok.Literal != expected.literal {
+					t.Errorf("token[%d]: expected literal %q, got %q", i, expected.literal, tok.Literal)
+				}
 			}
 		})
 	}

@@ -80,7 +80,11 @@ func (l *Lexer) NextToken() token.Token {
 			l.readChar() // consume \n in CRLF sequence
 		}
 		return token.Token{Type: token.NEWLINE, Literal: "\n"}
-	case '=': // = or ==
+	case '=': // Section header
+		// Check if this is at the start of a line (section header)
+		if l.position == 0 || (l.position > 0 && (l.input[l.position-1] == '\n' || l.input[l.position-1] == '\r')) {
+			return l.readSectionHeader()
+		}
 		tok = newToken(token.SECTION, l.ch)
 	case '-':
 		if l.peekChar() == '-' {
@@ -395,5 +399,64 @@ func (l *Lexer) readBlockComment() token.Token {
 	return token.Token{
 		Type:    token.BLOCK_COMMENT,
 		Literal: strings.TrimSpace(commentContent),
+	}
+}
+
+// readSectionHeader reads a section header starting with = and containing an optional name
+// Formats: "= Dough", "== Filling ==", "=== Section Name ==="
+// The number of = symbols doesn't matter, and trailing = symbols are optional
+func (l *Lexer) readSectionHeader() token.Token {
+	// Skip leading = characters
+	for l.ch == '=' {
+		l.readChar()
+	}
+
+	// Skip whitespace after leading =
+	for l.ch == ' ' || l.ch == '\t' {
+		l.readChar()
+	}
+
+	// Read the section name until we hit trailing = or end of line
+	start := l.position
+	for l.ch != '\n' && l.ch != '\r' && l.ch != 0 {
+		// Check if we're hitting trailing = characters
+		if l.ch == '=' {
+			// Check if rest of line is just = and whitespace
+			allEquals := true
+			for i := l.position; i < len(l.input); i++ {
+				ch := l.input[i]
+				if ch == '\n' || ch == '\r' {
+					break
+				}
+				if ch != '=' && ch != ' ' && ch != '\t' {
+					allEquals = false
+					break
+				}
+			}
+			if allEquals {
+				break
+			}
+		}
+		l.readChar()
+	}
+
+	// Extract the section name
+	sectionName := strings.TrimSpace(l.input[start:l.position])
+
+	// Skip trailing = characters
+	for l.ch == '=' {
+		l.readChar()
+	}
+
+	// Skip trailing whitespace
+	for l.ch == ' ' || l.ch == '\t' {
+		l.readChar()
+	}
+
+	// Don't consume the newline - let normal token processing handle it
+
+	return token.Token{
+		Type:    token.SECTION_HEADER,
+		Literal: sectionName,
 	}
 }

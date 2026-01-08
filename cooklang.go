@@ -217,6 +217,8 @@ func (Instruction) isStepComponent() {}
 func (Timer) isStepComponent()       {}
 func (Cookware) isStepComponent()    {}
 func (Ingredient) isStepComponent()  {}
+func (Section) isStepComponent()     {}
+func (Comment) isStepComponent()     {}
 
 // Render returns the Cooklang syntax representation of this ingredient.
 // Examples: "@flour{500%g}", "@salt{}", "@milk{2%cups}(cold)"
@@ -319,6 +321,34 @@ func (c Cookware) RenderDisplay() string {
 	return c.Name
 }
 
+// Render returns the Cooklang syntax representation of this section.
+// Examples: "== Section Name =="
+func (s Section) Render() string {
+	if s.Name != "" {
+		return fmt.Sprintf("== %s ==", s.Name)
+	}
+	return "=="
+}
+
+// RenderDisplay returns section name suitable for display.
+func (s Section) RenderDisplay() string {
+	return s.Name
+}
+
+// Render returns the Cooklang syntax representation of this comment.
+// Examples: "-- comment text" for line comments, "[- comment text -]" for block comments
+func (cm Comment) Render() string {
+	if cm.IsBlock {
+		return fmt.Sprintf("[- %s -]", cm.Text)
+	}
+	return fmt.Sprintf("-- %s", cm.Text)
+}
+
+// RenderDisplay returns comment text suitable for display.
+func (cm Comment) RenderDisplay() string {
+	return cm.Text
+}
+
 // Ingredient represents a recipe ingredient with quantity, unit, and optional annotations.
 // Ingredients support unit conversion and consolidation for shopping lists.
 //
@@ -388,6 +418,29 @@ type Cookware struct {
 	Name          string        `json:"name,omitempty"`           // Cookware name (e.g., "pot", "bowl", "oven")
 	Quantity      int           `json:"quantity,omitempty"`       // Number of items needed (default 1)
 	Annotation    string        `json:"annotation,omitempty"`     // Optional annotation (e.g., "large", "non-stick")
+	NextComponent StepComponent `json:"next_component,omitempty"` // Next component in the step
+	CooklangRenderable
+}
+
+// Section represents a section header in a recipe.
+// Sections divide complex recipes into logical parts (e.g., "Dough", "Filling").
+//
+// Example Cooklang syntax: = Dough, == Filling ==
+type Section struct {
+	Name          string        `json:"name,omitempty"`           // Section name (e.g., "Dough", "Filling")
+	NextComponent StepComponent `json:"next_component,omitempty"` // Next component in the step
+	CooklangRenderable
+}
+
+// Comment represents a comment in a recipe.
+// Comments are notes that don't affect the cooking instructions.
+//
+// Example Cooklang syntax:
+// - Line comment: -- This is a comment
+// - Block comment: [- This is a block comment -]
+type Comment struct {
+	Text          string        `json:"text,omitempty"`           // Comment text
+	IsBlock       bool          `json:"is_block,omitempty"`       // True if this is a block comment [- -]
 	NextComponent StepComponent `json:"next_component,omitempty"` // Next component in the step
 	CooklangRenderable
 }
@@ -692,6 +745,20 @@ func ToCooklangRecipe(pRecipe *parser.Recipe) *Recipe {
 				stepComp = &Instruction{
 					Text: component.Value,
 				}
+			case "section":
+				stepComp = &Section{
+					Name: component.Name,
+				}
+			case "comment":
+				stepComp = &Comment{
+					Text:    component.Value,
+					IsBlock: false,
+				}
+			case "blockComment":
+				stepComp = &Comment{
+					Text:    component.Value,
+					IsBlock: true,
+				}
 			}
 
 			if stepComp != nil {
@@ -957,6 +1024,24 @@ func (c *Cookware) SetNext(next StepComponent) {
 
 func (c *Cookware) GetNext() StepComponent {
 	return c.NextComponent
+}
+
+// SetNext and GetNext methods for Section
+func (s *Section) SetNext(next StepComponent) {
+	s.NextComponent = next
+}
+
+func (s *Section) GetNext() StepComponent {
+	return s.NextComponent
+}
+
+// SetNext and GetNext methods for Comment
+func (cm *Comment) SetNext(next StepComponent) {
+	cm.NextComponent = next
+}
+
+func (cm *Comment) GetNext() StepComponent {
+	return cm.NextComponent
 }
 
 // IngredientList represents a collection of ingredients with unit consolidation capabilities.

@@ -96,54 +96,40 @@ func (hr HTMLRenderer) RenderRecipe(recipe *cooklang.Recipe) string {
 	result.WriteString("    <h2>Instructions</h2>\n")
 	result.WriteString("    <ol>\n")
 
-	stepNum := 1
 	currentStep := recipe.FirstStep
 	for currentStep != nil {
-		result.WriteString("      <li class=\"recipe-step\">\n        ")
-
-		// Render components in HTML format
-		currentComponent := currentStep.FirstComponent
-		for currentComponent != nil {
-			switch comp := currentComponent.(type) {
-			case *cooklang.Ingredient:
-				if comp.Quantity > 0 {
-					result.WriteString(fmt.Sprintf("<span class=\"ingredient\">%s</span> <span class=\"quantity\">(%g %s)</span>",
-						html.EscapeString(comp.Name), comp.Quantity, html.EscapeString(comp.Unit)))
-				} else {
-					result.WriteString(fmt.Sprintf("<span class=\"ingredient\">%s</span>", html.EscapeString(comp.Name)))
-				}
-				if comp.Annotation != "" {
-					result.WriteString(fmt.Sprintf(" <span class=\"annotation\">(%s)</span>", html.EscapeString(comp.Annotation)))
-				}
-			case *cooklang.Cookware:
-				if comp.Quantity > 1 {
-					result.WriteString(fmt.Sprintf("<span class=\"cookware\">%s</span> <span class=\"quantity\">(x%d)</span>",
-						html.EscapeString(comp.Name), comp.Quantity))
-				} else {
-					result.WriteString(fmt.Sprintf("<span class=\"cookware\">%s</span>", html.EscapeString(comp.Name)))
-				}
-				if comp.Annotation != "" {
-					result.WriteString(fmt.Sprintf(" <span class=\"annotation\">(%s)</span>", html.EscapeString(comp.Annotation)))
-				}
-			case *cooklang.Timer:
-				if comp.Name != "" {
-					result.WriteString(fmt.Sprintf("<span class=\"timer\">⏲️ %s (%s)</span>",
-						html.EscapeString(comp.Name), html.EscapeString(comp.Duration)))
-				} else {
-					result.WriteString(fmt.Sprintf("<span class=\"timer\">⏲️ %s</span>", html.EscapeString(comp.Duration)))
-				}
-				if comp.Annotation != "" {
-					result.WriteString(fmt.Sprintf(" <span class=\"annotation\">(%s)</span>", html.EscapeString(comp.Annotation)))
-				}
-			case *cooklang.Instruction:
-				result.WriteString(html.EscapeString(comp.Text))
+		// Check if the first component is a section - render it specially
+		firstComp := currentStep.FirstComponent
+		if section, ok := firstComp.(*cooklang.Section); ok {
+			// Close current list and render section as a heading
+			result.WriteString("    </ol>\n")
+			if section.Name != "" {
+				result.WriteString(fmt.Sprintf("    <h3 class=\"recipe-section\">%s</h3>\n", html.EscapeString(section.Name)))
 			}
-			currentComponent = currentComponent.GetNext()
-		}
+			result.WriteString("    <ol>\n")
+			// Render remaining components in this step
+			currentComponent := section.GetNext()
+			if currentComponent != nil {
+				result.WriteString("      <li class=\"recipe-step\">\n        ")
+				for currentComponent != nil {
+					hr.renderComponent(&result, currentComponent)
+					currentComponent = currentComponent.GetNext()
+				}
+				result.WriteString("\n      </li>\n")
+			}
+		} else {
+			result.WriteString("      <li class=\"recipe-step\">\n        ")
 
-		result.WriteString("\n      </li>\n")
+			// Render components in HTML format
+			currentComponent := currentStep.FirstComponent
+			for currentComponent != nil {
+				hr.renderComponent(&result, currentComponent)
+				currentComponent = currentComponent.GetNext()
+			}
+
+			result.WriteString("\n      </li>\n")
+		}
 		currentStep = currentStep.NextStep
-		stepNum++
 	}
 
 	result.WriteString("    </ol>\n")
@@ -151,6 +137,52 @@ func (hr HTMLRenderer) RenderRecipe(recipe *cooklang.Recipe) string {
 	result.WriteString("</div>\n")
 
 	return result.String()
+}
+
+// renderComponent renders a single component in HTML format
+func (hr HTMLRenderer) renderComponent(result *strings.Builder, currentComponent cooklang.StepComponent) {
+	switch comp := currentComponent.(type) {
+	case *cooklang.Ingredient:
+		if comp.Quantity > 0 {
+			fmt.Fprintf(result, "<span class=\"ingredient\">%s</span> <span class=\"quantity\">(%g %s)</span>",
+				html.EscapeString(comp.Name), comp.Quantity, html.EscapeString(comp.Unit))
+		} else {
+			fmt.Fprintf(result, "<span class=\"ingredient\">%s</span>", html.EscapeString(comp.Name))
+		}
+		if comp.Annotation != "" {
+			fmt.Fprintf(result, " <span class=\"annotation\">(%s)</span>", html.EscapeString(comp.Annotation))
+		}
+	case *cooklang.Cookware:
+		if comp.Quantity > 1 {
+			fmt.Fprintf(result, "<span class=\"cookware\">%s</span> <span class=\"quantity\">(x%d)</span>",
+				html.EscapeString(comp.Name), comp.Quantity)
+		} else {
+			fmt.Fprintf(result, "<span class=\"cookware\">%s</span>", html.EscapeString(comp.Name))
+		}
+		if comp.Annotation != "" {
+			fmt.Fprintf(result, " <span class=\"annotation\">(%s)</span>", html.EscapeString(comp.Annotation))
+		}
+	case *cooklang.Timer:
+		if comp.Name != "" {
+			fmt.Fprintf(result, "<span class=\"timer\">⏲️ %s (%s)</span>",
+				html.EscapeString(comp.Name), html.EscapeString(comp.Duration))
+		} else {
+			fmt.Fprintf(result, "<span class=\"timer\">⏲️ %s</span>", html.EscapeString(comp.Duration))
+		}
+		if comp.Annotation != "" {
+			fmt.Fprintf(result, " <span class=\"annotation\">(%s)</span>", html.EscapeString(comp.Annotation))
+		}
+	case *cooklang.Instruction:
+		result.WriteString(html.EscapeString(comp.Text))
+	case *cooklang.Section:
+		// Sections are handled specially in the main render loop
+		if comp.Name != "" {
+			fmt.Fprintf(result, "</ol>\n    <h3 class=\"recipe-section\">%s</h3>\n    <ol>", html.EscapeString(comp.Name))
+		}
+	case *cooklang.Comment:
+		// Render comments as HTML comments (hidden) or as styled span
+		fmt.Fprintf(result, "<span class=\"comment\">(%s)</span>", html.EscapeString(comp.Text))
+	}
 }
 
 // DefaultHTMLRenderer is the default instance of HTMLRenderer
