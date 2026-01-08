@@ -59,6 +59,46 @@ Toss everything together and serve.`
 
 See the [Cooklang specification](https://github.com/cooklang/spec/) for details.
 
+### Extended Syntax
+
+This parser supports additional syntax extensions beyond the base Cooklang specification:
+
+#### Ingredient Annotations
+
+Ingredients can have annotations in parentheses to specify preparation notes or state:
+
+```cooklang
+@milk{1%l}(cold)
+```
+
+The annotation `(cold)` is stored as the ingredient's `value` field.
+
+#### Cookware Annotations
+
+Similarly, cookware items can have annotations for usage hints:
+
+```cooklang
+#pan{}(for frying)
+```
+
+#### Named Timers
+
+Timers can have descriptive multi-word names:
+
+```cooklang
+~roast time{4%hours}
+```
+
+#### Comment Preservation
+
+Comments are preserved as a distinct type in the parsed output rather than being discarded:
+
+```cooklang
+-- This is a comment
+```
+
+Comments are accessible with `type: comment` and their text in the `value` field.
+
 ## Developing
 
 ### Prerequisites (Well, not really)

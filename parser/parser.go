@@ -168,6 +168,20 @@ func (p *CooklangParser) parseTokens(l *lexer.Lexer) (*Recipe, error) {
 			}
 			// In canonical mode, ignore block comments
 
+		case token.SECTION_HEADER:
+			// Section headers start a new step (if current has content) and add section component
+			// In canonical mode, sections are treated as step separators
+			// In extended mode, sections create section components
+			if len(currentStep.Components) > 0 {
+				recipe.Steps = append(recipe.Steps, currentStep)
+				currentStep = Step{Components: []Component{}}
+			}
+			// Add section as a component (in both modes for now, renderers can decide what to do)
+			currentStep.Components = append(currentStep.Components, Component{
+				Type: "section",
+				Name: tok.Literal, // Section name
+			})
+
 		case token.INGREDIENT:
 			// Parse ingredient
 			ingredient, err := p.parseIngredient(l)

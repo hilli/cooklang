@@ -123,51 +123,85 @@ func (mr MarkdownRenderer) RenderRecipe(recipe *cooklang.Recipe) string {
 	stepNum := 1
 	currentStep := recipe.FirstStep
 	for currentStep != nil {
-		result.WriteString(fmt.Sprintf("%d. ", stepNum))
-
-		// Render components in markdown-friendly format
-		currentComponent := currentStep.FirstComponent
-		for currentComponent != nil {
-			switch comp := currentComponent.(type) {
-			case *cooklang.Ingredient:
-				if comp.Quantity > 0 {
-					result.WriteString(fmt.Sprintf("**%s** (%g %s)", comp.Name, comp.Quantity, comp.Unit))
-				} else {
-					result.WriteString(fmt.Sprintf("**%s**", comp.Name))
-				}
-				if comp.Annotation != "" {
-					result.WriteString(fmt.Sprintf(" (%s)", comp.Annotation))
-				}
-			case *cooklang.Cookware:
-				if comp.Quantity > 1 {
-					result.WriteString(fmt.Sprintf("*%s* (x%d)", comp.Name, comp.Quantity))
-				} else {
-					result.WriteString(fmt.Sprintf("*%s*", comp.Name))
-				}
-				if comp.Annotation != "" {
-					result.WriteString(fmt.Sprintf(" (%s)", comp.Annotation))
-				}
-			case *cooklang.Timer:
-				if comp.Name != "" {
-					result.WriteString(fmt.Sprintf("⏲️ %s (%s)", comp.Name, comp.Duration))
-				} else {
-					result.WriteString(fmt.Sprintf("⏲️ %s", comp.Duration))
-				}
-				if comp.Annotation != "" {
-					result.WriteString(fmt.Sprintf(" (%s)", comp.Annotation))
-				}
-			case *cooklang.Instruction:
-				result.WriteString(comp.Text)
+		// Check if the first component is a section - render it specially
+		firstComp := currentStep.FirstComponent
+		if section, ok := firstComp.(*cooklang.Section); ok {
+			// Render section as a heading
+			if section.Name != "" {
+				result.WriteString(fmt.Sprintf("### %s\n\n", section.Name))
 			}
-			currentComponent = currentComponent.GetNext()
-		}
+			stepNum = 1 // Reset step numbering for new section
+			// Move to the next component after the section
+			currentComponent := section.GetNext()
+			if currentComponent != nil {
+				result.WriteString(fmt.Sprintf("%d. ", stepNum))
+				for currentComponent != nil {
+					mr.renderComponent(&result, currentComponent)
+					currentComponent = currentComponent.GetNext()
+				}
+				result.WriteString("\n\n")
+				stepNum++
+			}
+		} else {
+			result.WriteString(fmt.Sprintf("%d. ", stepNum))
 
-		result.WriteString("\n\n")
+			// Render components in markdown-friendly format
+			currentComponent := currentStep.FirstComponent
+			for currentComponent != nil {
+				mr.renderComponent(&result, currentComponent)
+				currentComponent = currentComponent.GetNext()
+			}
+
+			result.WriteString("\n\n")
+			stepNum++
+		}
 		currentStep = currentStep.NextStep
-		stepNum++
 	}
 
 	return result.String()
+}
+
+// renderComponent renders a single component in markdown format
+func (mr MarkdownRenderer) renderComponent(result *strings.Builder, currentComponent cooklang.StepComponent) {
+	switch comp := currentComponent.(type) {
+	case *cooklang.Ingredient:
+		if comp.Quantity > 0 {
+			fmt.Fprintf(result, "**%s** (%g %s)", comp.Name, comp.Quantity, comp.Unit)
+		} else {
+			fmt.Fprintf(result, "**%s**", comp.Name)
+		}
+		if comp.Annotation != "" {
+			fmt.Fprintf(result, " (%s)", comp.Annotation)
+		}
+	case *cooklang.Cookware:
+		if comp.Quantity > 1 {
+			fmt.Fprintf(result, "*%s* (x%d)", comp.Name, comp.Quantity)
+		} else {
+			fmt.Fprintf(result, "*%s*", comp.Name)
+		}
+		if comp.Annotation != "" {
+			fmt.Fprintf(result, " (%s)", comp.Annotation)
+		}
+	case *cooklang.Timer:
+		if comp.Name != "" {
+			fmt.Fprintf(result, "⏲️ %s (%s)", comp.Name, comp.Duration)
+		} else {
+			fmt.Fprintf(result, "⏲️ %s", comp.Duration)
+		}
+		if comp.Annotation != "" {
+			fmt.Fprintf(result, " (%s)", comp.Annotation)
+		}
+	case *cooklang.Instruction:
+		result.WriteString(comp.Text)
+	case *cooklang.Section:
+		// Sections handled specially in the main render loop
+		if comp.Name != "" {
+			fmt.Fprintf(result, "\n\n### %s\n\n", comp.Name)
+		}
+	case *cooklang.Comment:
+		// Render comments as italicized text
+		fmt.Fprintf(result, "*(%s)*", comp.Text)
+	}
 }
 
 // DefaultMarkdownRenderer is the default instance of MarkdownRenderer

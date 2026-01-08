@@ -24,4 +24,4 @@ tasks:
 
   cli:
     cmds:
-      - go build -o cook ./cmd/cook
+      - go build -o ./bin/cook ./cmd/cook

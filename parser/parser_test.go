@@ -884,6 +884,230 @@ func TestBlockComments(t *testing.T) {
 	}
 }
 
+// TestSectionParsing tests that sections are correctly parsed
+func TestSectionParsing(t *testing.T) {
+	tests := []struct {
+		name          string
+		input         string
+		expectedSteps int
+		sectionName   string
+	}{
+		{
+			name:          "Single section with content",
+			input:         "= Dough\nMix @flour{200%g} with water.",
+			expectedSteps: 1,
+			sectionName:   "Dough",
+		},
+		{
+			name:          "Section with double =",
+			input:         "== Filling ==\nCombine @cheese{100%g} and @spinach{50%g}.",
+			expectedSteps: 1,
+			sectionName:   "Filling",
+		},
+		{
+			name:          "Content before section",
+			input:         "Prep the ingredients.\n\n= Main Steps\nCook the @pasta{400%g}.",
+			expectedSteps: 2,
+			sectionName:   "Main Steps",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			p := New()
+			recipe, err := p.ParseString(tt.input)
+			if err != nil {
+				t.Fatalf("Failed to parse: %v", err)
+			}
+
+			if len(recipe.Steps) != tt.expectedSteps {
+				t.Errorf("Expected %d steps, got %d", tt.expectedSteps, len(recipe.Steps))
+				for i, step := range recipe.Steps {
+					t.Logf("Step %d has %d components", i, len(step.Components))
+					for j, comp := range step.Components {
+						t.Logf("  Component %d: Type=%s, Name=%q, Value=%q", j, comp.Type, comp.Name, comp.Value)
+					}
+				}
+			}
+
+			// Check for section component
+			foundSection := false
+			var sectionName string
+			for _, step := range recipe.Steps {
+				for _, comp := range step.Components {
+					if comp.Type == "section" {
+						foundSection = true
+						sectionName = comp.Name
+					}
+				}
+			}
+
+			if !foundSection {
+				t.Error("Expected to find a section component")
+			}
+
+			if sectionName != tt.sectionName {
+				t.Errorf("Expected section name %q, got %q", tt.sectionName, sectionName)
+			}
+		})
+	}
+}
+
+// TestMultipleSections tests that multiple sections are correctly parsed
+func TestMultipleSections(t *testing.T) {
+	input := `= Dough
+Mix @flour{200%g} and @water{100%ml} until smooth.
+
+== Filling ==
+Combine @cheese{100%g} and @spinach{50%g}.
+
+=== Assembly ===
+Place filling on dough and roll.`
+
+	p := New()
+	recipe, err := p.ParseString(input)
+	if err != nil {
+		t.Fatalf("Failed to parse: %v", err)
+	}
+
+	// Should have 3 steps (one per section)
+	if len(recipe.Steps) != 3 {
+		t.Errorf("Expected 3 steps, got %d", len(recipe.Steps))
+		for i, step := range recipe.Steps {
+			t.Logf("Step %d:", i)
+			for j, comp := range step.Components {
+				t.Logf("  Component %d: Type=%s, Name=%q, Value=%q", j, comp.Type, comp.Name, comp.Value)
+			}
+		}
+	}
+
+	// Find all section names
+	sectionNames := []string{}
+	for _, step := range recipe.Steps {
+		for _, comp := range step.Components {
+			if comp.Type == "section" {
+				sectionNames = append(sectionNames, comp.Name)
+			}
+		}
+	}
+
+	expectedSections := []string{"Dough", "Filling", "Assembly"}
+	if len(sectionNames) != len(expectedSections) {
+		t.Errorf("Expected %d sections, got %d", len(expectedSections), len(sectionNames))
+	}
+
+	for i, expected := range expectedSections {
+		if i < len(sectionNames) && sectionNames[i] != expected {
+			t.Errorf("Section %d: expected %q, got %q", i, expected, sectionNames[i])
+		}
+	}
+}
+
+// TestSectionWithIngredients tests that sections work correctly with ingredients
+func TestSectionWithIngredients(t *testing.T) {
+	input := `= Preparation
+Add @salt{1%tsp} and @pepper{} to taste.`
+
+	p := New()
+	recipe, err := p.ParseString(input)
+	if err != nil {
+		t.Fatalf("Failed to parse: %v", err)
+	}
+
+	// Find section and ingredients
+	foundSection := false
+	foundSalt := false
+	foundPepper := false
+
+	for _, step := range recipe.Steps {
+		for _, comp := range step.Components {
+			if comp.Type == "section" && comp.Name == "Preparation" {
+				foundSection = true
+			}
+			if comp.Type == "ingredient" && comp.Name == "salt" {
+				foundSalt = true
+				if comp.Quantity != "1" || comp.Unit != "tsp" {
+					t.Errorf("Salt: expected quantity=1 unit=tsp, got quantity=%s unit=%s",
+						comp.Quantity, comp.Unit)
+				}
+			}
+			if comp.Type == "ingredient" && comp.Name == "pepper" {
+				foundPepper = true
+			}
+		}
+	}
+
+	if !foundSection {
+		t.Error("Expected to find section 'Preparation'")
+	}
+	if !foundSalt {
+		t.Error("Expected to find ingredient 'salt'")
+	}
+	if !foundPepper {
+		t.Error("Expected to find ingredient 'pepper'")
+	}
+}
+
+// TestSectionWithCRLF tests that sections work with Windows line endings
+func TestSectionWithCRLF(t *testing.T) {
+	tests := []struct {
+		name        string
+		input       string
+		sectionName string
+	}{
+		{
+			name:        "Section with Unix LF",
+			input:       "= Dough\nMix flour.",
+			sectionName: "Dough",
+		},
+		{
+			name:        "Section with Windows CRLF",
+			input:       "= Dough\r\nMix flour.",
+			sectionName: "Dough",
+		},
+		{
+			name:        "Section with Old Mac CR",
+			input:       "= Dough\rMix flour.",
+			sectionName: "Dough",
+		},
+		{
+			name:        "Section after CRLF newline",
+			input:       "Step one.\r\n\r\n= Section\r\nStep two.",
+			sectionName: "Section",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			p := New()
+			recipe, err := p.ParseString(tt.input)
+			if err != nil {
+				t.Fatalf("Failed to parse: %v", err)
+			}
+
+			// Find section
+			foundSection := false
+			var sectionName string
+			for _, step := range recipe.Steps {
+				for _, comp := range step.Components {
+					if comp.Type == "section" {
+						foundSection = true
+						sectionName = comp.Name
+					}
+				}
+			}
+
+			if !foundSection {
+				t.Error("Expected to find a section")
+			}
+
+			if sectionName != tt.sectionName {
+				t.Errorf("Expected section name %q, got %q", tt.sectionName, sectionName)
+			}
+		})
+	}
+}
+
 // TestBlockCommentWithIngredients tests that block comments work alongside ingredients
 func TestBlockCommentWithIngredients(t *testing.T) {
 	p := New()
