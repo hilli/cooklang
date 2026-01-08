@@ -92,28 +92,29 @@ func displayRecipe(recipe *cooklang.Recipe, filename string, detailed bool) {
 	// Display ingredients summary
 	ingredients := recipe.GetIngredients()
 	if len(ingredients.Ingredients) > 0 {
-		fmt.Println("\n🥕 Ingredients:")
+		fmt.Println("\nIngredients:")
 		for _, ing := range ingredients.Ingredients {
-			if ing.Quantity == -1 {
-				fmt.Printf("  • %s (some)\n", ing.Name)
-			} else if ing.Unit == "" {
-				fmt.Printf("  • %s: %.2g\n", ing.Name, ing.Quantity)
-			} else {
-				fmt.Printf("  • %s: %.2g %s\n", ing.Name, ing.Quantity, ing.Unit)
+			display := ing.RenderDisplay()
+			if ing.Annotation != "" {
+				display += fmt.Sprintf(" (%s)", ing.Annotation)
 			}
+			fmt.Printf("  - %s\n", display)
 		}
 	}
 
 	// Display cookware
 	cookware := recipe.GetCookware()
 	if len(cookware) > 0 {
-		fmt.Println("\n🍳 Cookware:")
+		fmt.Println("\nCookware:")
 		for _, item := range cookware {
-			if item.Quantity == 0 || item.Quantity == 1 {
-				fmt.Printf("  • %s\n", item.Name)
-			} else {
-				fmt.Printf("  • %s (x%d)\n", item.Name, item.Quantity)
+			display := item.RenderDisplay()
+			if item.Quantity > 1 {
+				display = fmt.Sprintf("%s (x%d)", display, item.Quantity)
 			}
+			if item.Annotation != "" {
+				display += fmt.Sprintf(" (%s)", item.Annotation)
+			}
+			fmt.Printf("  - %s\n", display)
 		}
 	}
 
@@ -145,22 +146,23 @@ func getStepText(step *cooklang.Step) string {
 	for currentComponent != nil {
 		switch comp := currentComponent.(type) {
 		case *cooklang.Instruction:
-			text += comp.Text
+			text += comp.RenderDisplay()
 		case *cooklang.Ingredient:
-			if comp.Quantity == -1 {
-				text += fmt.Sprintf("%s (some)", comp.Name)
-			} else if comp.Unit == "" {
-				text += fmt.Sprintf("%s (%.2g)", comp.Name, comp.Quantity)
-			} else {
-				text += fmt.Sprintf("%s (%.2g %s)", comp.Name, comp.Quantity, comp.Unit)
+			display := comp.RenderDisplay()
+			if comp.Annotation != "" {
+				display += ", " + comp.Annotation
 			}
+			text += display
 		case *cooklang.Cookware:
-			text += comp.Name
+			display := comp.RenderDisplay()
+			if comp.Annotation != "" {
+				display += " (" + comp.Annotation + ")"
+			}
+			text += display
 		case *cooklang.Timer:
-			if comp.Name != "" {
-				text += fmt.Sprintf("[%s]", comp.Name)
-			} else {
-				text += fmt.Sprintf("[timer: %s]", comp.Duration)
+			display := comp.RenderDisplay()
+			if display != "" {
+				text += "[" + display + "]"
 			}
 		}
 		currentComponent = currentComponent.GetNext()
@@ -175,32 +177,28 @@ func displayDetailedStep(step *cooklang.Step) {
 		prefix := fmt.Sprintf("    [%d]", i)
 		switch comp := currentComponent.(type) {
 		case *cooklang.Ingredient:
-			fmt.Printf("%s 🥕 Ingredient: %s", prefix, comp.Name)
-			if comp.Quantity == -1 {
-				fmt.Print(" (some)")
-			} else if comp.Unit == "" {
-				fmt.Printf(" (%.2g)", comp.Quantity)
-			} else {
-				fmt.Printf(" (%.2g %s)", comp.Quantity, comp.Unit)
+			display := comp.RenderDisplay()
+			if comp.Annotation != "" {
+				display += fmt.Sprintf(" (%s)", comp.Annotation)
 			}
-			fmt.Println()
+			fmt.Printf("%s Ingredient: %s\n", prefix, display)
 		case *cooklang.Cookware:
-			fmt.Printf("%s 🍳 Cookware: %s", prefix, comp.Name)
+			display := comp.RenderDisplay()
 			if comp.Quantity > 1 {
-				fmt.Printf(" (qty: %d)", comp.Quantity)
+				display = fmt.Sprintf("%s (qty: %d)", display, comp.Quantity)
 			}
-			fmt.Println()
+			if comp.Annotation != "" {
+				display += fmt.Sprintf(" (%s)", comp.Annotation)
+			}
+			fmt.Printf("%s Cookware: %s\n", prefix, display)
 		case *cooklang.Timer:
-			fmt.Printf("%s ⏲️  Timer:", prefix)
-			if comp.Name != "" {
-				fmt.Printf(" %s", comp.Name)
+			display := comp.RenderDisplay()
+			if comp.Annotation != "" {
+				display += fmt.Sprintf(" (%s)", comp.Annotation)
 			}
-			if comp.Duration != "" {
-				fmt.Printf(" (%s)", comp.Duration)
-			}
-			fmt.Println()
+			fmt.Printf("%s Timer: %s\n", prefix, display)
 		case *cooklang.Instruction:
-			fmt.Printf("%s 📝 Text: %q\n", prefix, comp.Text)
+			fmt.Printf("%s Text: %q\n", prefix, comp.RenderDisplay())
 		}
 		currentComponent = currentComponent.GetNext()
 		i++
