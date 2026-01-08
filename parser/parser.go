@@ -140,6 +140,34 @@ func (p *CooklangParser) parseTokens(l *lexer.Lexer) (*Recipe, error) {
 						Type:  "text",
 						Value: nextTok.Literal,
 					})
+				case token.COMMENT:
+					// Only create comment components in extended mode
+					if p.ExtendedMode {
+						currentStep.Components = append(currentStep.Components, Component{
+							Type:  "comment",
+							Value: nextTok.Literal,
+						})
+					}
+					// In canonical mode, ignore comments
+				case token.BLOCK_COMMENT:
+					// Only create block comment components in extended mode
+					if p.ExtendedMode {
+						currentStep.Components = append(currentStep.Components, Component{
+							Type:  "blockComment",
+							Value: nextTok.Literal,
+						})
+					}
+					// In canonical mode, ignore block comments
+				case token.SECTION_HEADER:
+					// Section headers start a new step
+					if len(currentStep.Components) > 0 {
+						recipe.Steps = append(recipe.Steps, currentStep)
+						currentStep = Step{Components: []Component{}}
+					}
+					currentStep.Components = append(currentStep.Components, Component{
+						Type: "section",
+						Name: nextTok.Literal,
+					})
 				default:
 					currentStep.Components = append(currentStep.Components, Component{
 						Type:  "text",
