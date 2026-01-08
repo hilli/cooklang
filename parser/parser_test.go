@@ -804,3 +804,119 @@ func TestCommentsWithCRLF(t *testing.T) {
 		})
 	}
 }
+
+// TestBlockComments tests block comment parsing [- comment -]
+func TestBlockComments(t *testing.T) {
+	tests := []struct {
+		name               string
+		input              string
+		extendedMode       bool
+		expectedSteps      int
+		expectBlockComment bool
+		blockCommentValue  string
+	}{
+		{
+			name:               "Block comment ignored in canonical mode",
+			input:              "Add @milk{4%cup} [- TODO change units to litres -], keep mixing",
+			extendedMode:       false,
+			expectedSteps:      1,
+			expectBlockComment: false,
+		},
+		{
+			name:               "Block comment preserved in extended mode",
+			input:              "Add @milk{4%cup} [- TODO change units to litres -], keep mixing",
+			extendedMode:       true,
+			expectedSteps:      1,
+			expectBlockComment: true,
+			blockCommentValue:  "TODO change units to litres",
+		},
+		{
+			name:               "Multiple block comments in extended mode",
+			input:              "[- comment 1 -] Add @salt{1%tsp} [- comment 2 -] and stir",
+			extendedMode:       true,
+			expectedSteps:      1,
+			expectBlockComment: true,
+		},
+		{
+			name:               "Empty block comment",
+			input:              "Add salt [-  -] and pepper",
+			extendedMode:       true,
+			expectedSteps:      1,
+			expectBlockComment: true,
+			blockCommentValue:  "",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			p := New()
+			p.ExtendedMode = tt.extendedMode
+
+			recipe, err := p.ParseString(tt.input)
+			if err != nil {
+				t.Fatalf("Failed to parse: %v", err)
+			}
+
+			if len(recipe.Steps) != tt.expectedSteps {
+				t.Errorf("Expected %d step(s), got %d", tt.expectedSteps, len(recipe.Steps))
+			}
+
+			// Check for block comment component
+			foundBlockComment := false
+			var blockCommentValue string
+			for _, step := range recipe.Steps {
+				for _, comp := range step.Components {
+					if comp.Type == "blockComment" {
+						foundBlockComment = true
+						blockCommentValue = comp.Value
+					}
+				}
+			}
+
+			if foundBlockComment != tt.expectBlockComment {
+				t.Errorf("Expected block comment present=%v, got %v", tt.expectBlockComment, foundBlockComment)
+			}
+
+			if tt.expectBlockComment && tt.blockCommentValue != "" && blockCommentValue != tt.blockCommentValue {
+				t.Errorf("Expected block comment value %q, got %q", tt.blockCommentValue, blockCommentValue)
+			}
+		})
+	}
+}
+
+// TestBlockCommentWithIngredients tests that block comments work alongside ingredients
+func TestBlockCommentWithIngredients(t *testing.T) {
+	p := New()
+	p.ExtendedMode = true
+
+	input := "Slowly add @milk{4%cup} [- TODO change units to litres -], keep mixing"
+	recipe, err := p.ParseString(input)
+	if err != nil {
+		t.Fatalf("Failed to parse: %v", err)
+	}
+
+	// Should have milk ingredient
+	foundMilk := false
+	foundBlockComment := false
+	for _, step := range recipe.Steps {
+		for _, comp := range step.Components {
+			if comp.Type == "ingredient" && comp.Name == "milk" {
+				foundMilk = true
+				if comp.Quantity != "4" || comp.Unit != "cup" {
+					t.Errorf("Milk ingredient: expected quantity=4, unit=cup, got quantity=%s, unit=%s",
+						comp.Quantity, comp.Unit)
+				}
+			}
+			if comp.Type == "blockComment" {
+				foundBlockComment = true
+			}
+		}
+	}
+
+	if !foundMilk {
+		t.Error("Expected to find milk ingredient")
+	}
+	if !foundBlockComment {
+		t.Error("Expected to find block comment")
+	}
+}

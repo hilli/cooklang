@@ -14,10 +14,11 @@ const (
 	PREAMPLE         = "---"
 	YAML_FRONTMATTER = "YAML_FRONTMATTER"
 
-	COMMENT    = "-- "
-	SECTION    = "="
-	NEWLINE    = "NEWLINE"
-	WHITESPACE = "WHITESPACE"
+	COMMENT       = "-- "
+	BLOCK_COMMENT = "[- -]"
+	SECTION       = "="
+	NEWLINE       = "NEWLINE"
+	WHITESPACE    = "WHITESPACE"
 
 	IDENT = "IDENT"
 	INT   = "INT"
