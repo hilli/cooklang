@@ -117,6 +117,11 @@ func (hr HTMLRenderer) RenderRecipe(recipe *cooklang.Recipe) string {
 				}
 				result.WriteString("\n      </li>\n")
 			}
+		} else if note, ok := firstComp.(*cooklang.Note); ok {
+			// Render notes as blockquotes outside the ordered list
+			result.WriteString("    </ol>\n")
+			result.WriteString(fmt.Sprintf("    <blockquote class=\"recipe-note\">%s</blockquote>\n", html.EscapeString(note.Text)))
+			result.WriteString("    <ol>\n")
 		} else {
 			result.WriteString("      <li class=\"recipe-step\">\n        ")
 
@@ -182,6 +187,9 @@ func (hr HTMLRenderer) renderComponent(result *strings.Builder, currentComponent
 	case *cooklang.Comment:
 		// Render comments as HTML comments (hidden) or as styled span
 		fmt.Fprintf(result, "<span class=\"comment\">(%s)</span>", html.EscapeString(comp.Text))
+	case *cooklang.Note:
+		// Notes render as blockquotes
+		fmt.Fprintf(result, "<blockquote class=\"recipe-note\">%s</blockquote>", html.EscapeString(comp.Text))
 	}
 }
 

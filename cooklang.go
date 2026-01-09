@@ -219,6 +219,7 @@ func (Cookware) isStepComponent()    {}
 func (Ingredient) isStepComponent()  {}
 func (Section) isStepComponent()     {}
 func (Comment) isStepComponent()     {}
+func (Note) isStepComponent()        {}
 
 // Render returns the Cooklang syntax representation of this ingredient.
 // Examples: "@flour{500%g}", "@salt{}", "@milk{2%cups}(cold)"
@@ -349,6 +350,17 @@ func (cm Comment) RenderDisplay() string {
 	return cm.Text
 }
 
+// Render returns the Cooklang syntax representation of this note.
+// Example: "> This is a note"
+func (n Note) Render() string {
+	return fmt.Sprintf("> %s", n.Text)
+}
+
+// RenderDisplay returns note text suitable for display.
+func (n Note) RenderDisplay() string {
+	return n.Text
+}
+
 // Ingredient represents a recipe ingredient with quantity, unit, and optional annotations.
 // Ingredients support unit conversion and consolidation for shopping lists.
 //
@@ -441,6 +453,20 @@ type Section struct {
 type Comment struct {
 	Text          string        `json:"text,omitempty"`           // Comment text
 	IsBlock       bool          `json:"is_block,omitempty"`       // True if this is a block comment [- -]
+	NextComponent StepComponent `json:"next_component,omitempty"` // Next component in the step
+	CooklangRenderable
+}
+
+// Note represents a note block in a recipe.
+// Notes are supplementary information that appears in recipe details but not during cooking mode.
+// They are used for background stories, tips, or personal anecdotes related to the recipe.
+//
+// Example Cooklang syntax:
+// > This dish is even better the next day, after the flavors have melded overnight.
+// > This is a multi-line note
+// > that continues here.
+type Note struct {
+	Text          string        `json:"text,omitempty"`           // Note text
 	NextComponent StepComponent `json:"next_component,omitempty"` // Next component in the step
 	CooklangRenderable
 }
@@ -759,6 +785,10 @@ func ToCooklangRecipe(pRecipe *parser.Recipe) *Recipe {
 					Text:    component.Value,
 					IsBlock: true,
 				}
+			case "note":
+				stepComp = &Note{
+					Text: component.Value,
+				}
 			}
 
 			if stepComp != nil {
@@ -1042,6 +1072,15 @@ func (cm *Comment) SetNext(next StepComponent) {
 
 func (cm *Comment) GetNext() StepComponent {
 	return cm.NextComponent
+}
+
+// SetNext and GetNext methods for Note
+func (n *Note) SetNext(next StepComponent) {
+	n.NextComponent = next
+}
+
+func (n *Note) GetNext() StepComponent {
+	return n.NextComponent
 }
 
 // IngredientList represents a collection of ingredients with unit consolidation capabilities.

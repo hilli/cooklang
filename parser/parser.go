@@ -210,6 +210,21 @@ func (p *CooklangParser) parseTokens(l *lexer.Lexer) (*Recipe, error) {
 				Name: tok.Literal, // Section name
 			})
 
+		case token.NOTE:
+			// Notes are standalone blocks that appear in recipe details but not during cooking
+			// Notes always start a new step to keep them separate from cooking instructions
+			if len(currentStep.Components) > 0 {
+				recipe.Steps = append(recipe.Steps, currentStep)
+				currentStep = Step{Components: []Component{}}
+			}
+			currentStep.Components = append(currentStep.Components, Component{
+				Type:  "note",
+				Value: tok.Literal,
+			})
+			// Add the note step immediately and start fresh for next content
+			recipe.Steps = append(recipe.Steps, currentStep)
+			currentStep = Step{Components: []Component{}}
+
 		case token.INGREDIENT:
 			// Parse ingredient
 			ingredient, err := p.parseIngredient(l)

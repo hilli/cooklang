@@ -16,6 +16,7 @@ const (
 
 	COMMENT        = "-- "
 	BLOCK_COMMENT  = "[- -]"
+	NOTE           = ">"
 	SECTION        = "="
 	SECTION_HEADER = "SECTION_HEADER"
 	NEWLINE        = "NEWLINE"
