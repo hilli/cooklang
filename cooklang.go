@@ -222,11 +222,15 @@ func (Comment) isStepComponent()     {}
 func (Note) isStepComponent()        {}
 
 // Render returns the Cooklang syntax representation of this ingredient.
-// Examples: "@flour{500%g}", "@salt{}", "@milk{2%cups}(cold)"
+// Examples: "@flour{500%g}", "@salt{}", "@milk{2%cups}(cold)", "@yeast{=1%packet}"
 func (i Ingredient) Render() string {
 	var result string
+	fixedPrefix := ""
+	if i.Fixed {
+		fixedPrefix = "="
+	}
 	if i.Quantity > 0 {
-		result = fmt.Sprintf("@%s{%g%%%s}", i.Name, i.Quantity, i.Unit)
+		result = fmt.Sprintf("@%s{%s%g%%%s}", i.Name, fixedPrefix, i.Quantity, i.Unit)
 	} else if i.Quantity == -1 {
 		// -1 indicates "some" quantity
 		result = fmt.Sprintf("@%s{}", i.Name)
@@ -367,10 +371,12 @@ func (n Note) RenderDisplay() string {
 // Example Cooklang syntax: @flour{500%g}, @salt{}, @milk{2%cups}
 //
 // The Quantity field uses -1 to represent "some" (unspecified amount).
+// The Fixed field indicates a quantity that should not scale with servings (e.g., @salt{=1%tsp}).
 type Ingredient struct {
 	Name           string        `json:"name,omitempty"`           // Ingredient name (e.g., "flour", "sugar")
 	Quantity       float32       `json:"quantity,omitempty"`       // Amount (-1 means "some", 0 means none specified)
 	Unit           string        `json:"unit,omitempty"`           // Unit of measurement (e.g., "g", "cup", "tbsp")
+	Fixed          bool          `json:"fixed,omitempty"`          // Fixed quantity doesn't scale with servings
 	TypedUnit      *units.Unit   `json:"typed_unit,omitempty"`     // Typed unit for conversion operations
 	Subinstruction string        `json:"value,omitempty"`          // Additional preparation instructions
 	Annotation     string        `json:"annotation,omitempty"`     // Optional annotation (e.g., "finely chopped")
@@ -747,6 +753,7 @@ func ToCooklangRecipe(pRecipe *parser.Recipe) *Recipe {
 					Name:       component.Name,
 					Quantity:   quant,
 					Unit:       component.Unit,
+					Fixed:      component.Fixed,
 					TypedUnit:  CreateTypedUnit(component.Unit),
 					Annotation: component.Value,
 				}

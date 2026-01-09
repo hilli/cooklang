@@ -238,3 +238,87 @@ tests:
           - type: text
             value: "."
       metadata: {}
+
+  # ==========================================
+  # Fixed Quantities =quantity
+  # ==========================================
+
+  testFixedQuantitySimple:
+    source: |
+      Add @salt{=1%tsp} to the dough.
+    result:
+      steps:
+        -
+          - type: text
+            value: "Add "
+          - type: ingredient
+            name: "salt"
+            quantity: 1
+            units: "tsp"
+            fixed: true
+          - type: text
+            value: " to the dough."
+      metadata: {}
+
+  testFixedQuantityNoUnit:
+    source: |
+      Use @yeast{=1} packet.
+    result:
+      steps:
+        -
+          - type: text
+            value: "Use "
+          - type: ingredient
+            name: "yeast"
+            quantity: 1
+            units: ""
+            fixed: true
+          - type: text
+            value: " packet."
+      metadata: {}
+
+  testFixedQuantityMixed:
+    source: |
+      Mix @flour{500%g} with @water{300%ml} and @salt{=1%tsp}.
+    result:
+      steps:
+        -
+          - type: text
+            value: "Mix "
+          - type: ingredient
+            name: "flour"
+            quantity: 500
+            units: "g"
+          - type: text
+            value: " with "
+          - type: ingredient
+            name: "water"
+            quantity: 300
+            units: "ml"
+          - type: text
+            value: " and "
+          - type: ingredient
+            name: "salt"
+            quantity: 1
+            units: "tsp"
+            fixed: true
+          - type: text
+            value: "."
+      metadata: {}
+
+  testFixedQuantityDecimal:
+    source: |
+      Add @baking powder{=0.5%tsp} to the mix.
+    result:
+      steps:
+        -
+          - type: text
+            value: "Add "
+          - type: ingredient
+            name: "baking powder"
+            quantity: 0.5
+            units: "tsp"
+            fixed: true
+          - type: text
+            value: " to the mix."
+      metadata: {}

@@ -30,6 +30,7 @@ type Component struct {
 	Name     string `json:"name,omitempty" yaml:"name,omitempty"`
 	Quantity string `json:"quantity,omitempty" yaml:"quantity,omitempty"`
 	Unit     string `json:"unit,omitempty" yaml:"units,omitempty"`
+	Fixed    bool   `json:"fixed,omitempty" yaml:"fixed,omitempty"` // Fixed quantity doesn't scale with servings
 }
 
 // CooklangParser handles parsing of cooklang recipes
@@ -596,7 +597,7 @@ func (p *CooklangParser) parseIngredient(l *lexer.Lexer) (Component, error) {
 			for _, t := range nameTokens {
 				nameParts = append(nameParts, t.Literal)
 			}
-			quantity, unit, err := p.parseQuantityAndUnit(l)
+			quantity, unit, isFixed, err := p.parseQuantityAndUnit(l)
 			if err != nil {
 				return component, err
 			}
@@ -604,6 +605,7 @@ func (p *CooklangParser) parseIngredient(l *lexer.Lexer) (Component, error) {
 			// Use the parsed unit in both canonical and extended modes
 			component.Unit = unit
 			component.Name = strings.Join(nameParts, "")
+			component.Fixed = isFixed
 
 			// Check for instruction in parentheses
 			tok := l.NextToken()
@@ -700,7 +702,7 @@ func (p *CooklangParser) parseCookware(l *lexer.Lexer) (Component, error) {
 			for _, t := range nameTokens {
 				nameParts = append(nameParts, t.Literal)
 			}
-			quantity, _, err := p.parseQuantityAndUnit(l)
+			quantity, _, _, err := p.parseQuantityAndUnit(l) // isFixed ignored - cookware doesn't scale
 			if err != nil {
 				return component, err
 			}
@@ -788,7 +790,7 @@ func (p *CooklangParser) parseTimer(l *lexer.Lexer) (Component, error) {
 				case token.LBRACE:
 					// Found braces - parse quantity/unit
 					component.Name = strings.Join(nameTokens, "")
-					quantity, unit, err := p.parseQuantityAndUnit(l)
+					quantity, unit, _, err := p.parseQuantityAndUnit(l) // isFixed ignored - timers don't scale
 					if err != nil {
 						return component, err
 					}
@@ -816,7 +818,7 @@ func (p *CooklangParser) parseTimer(l *lexer.Lexer) (Component, error) {
 			nextTok := l.NextToken()
 			if nextTok.Type == token.LBRACE {
 				// Parse quantity/unit
-				quantity, unit, err := p.parseQuantityAndUnit(l)
+				quantity, unit, _, err := p.parseQuantityAndUnit(l) // isFixed ignored - timers don't scale
 				if err != nil {
 					return component, err
 				}
@@ -830,7 +832,7 @@ func (p *CooklangParser) parseTimer(l *lexer.Lexer) (Component, error) {
 		}
 	case token.LBRACE:
 		// Anonymous timer - parse quantity/unit directly
-		quantity, unit, err := p.parseQuantityAndUnit(l)
+		quantity, unit, _, err := p.parseQuantityAndUnit(l) // isFixed ignored - timers don't scale
 		if err != nil {
 			return component, err
 		}
@@ -864,23 +866,29 @@ func (p *CooklangParser) parseTimer(l *lexer.Lexer) (Component, error) {
 }
 
 // parseQuantityAndUnit parses quantity and units from within braces
-func (p *CooklangParser) parseQuantityAndUnit(l *lexer.Lexer) (string, string, error) {
+// Returns quantity, unit, isFixed (true if quantity has = prefix), and error
+func (p *CooklangParser) parseQuantityAndUnit(l *lexer.Lexer) (string, string, bool, error) {
 	var quantityParts []string
 	var unit string
 	var foundPercent bool
+	var isFixed bool
 
-	for {
-		tok := l.NextToken()
-		if tok.Type == token.RBRACE {
-			break
-		}
+	// Check for leading = which indicates fixed quantity (doesn't scale with servings)
+	tok := l.NextToken()
+	if tok.Type == token.SECTION { // SECTION token is "="
+		isFixed = true
+		tok = l.NextToken() // consume the =, get next token
+	}
 
+	// Process tokens starting with the current one
+	for tok.Type != token.RBRACE {
 		if tok.Type == token.EOF {
-			return "", "", fmt.Errorf("unexpected EOF while parsing quantity/unit")
+			return "", "", false, fmt.Errorf("unexpected EOF while parsing quantity/unit")
 		}
 
 		if tok.Type == token.PERCENT {
 			foundPercent = true
+			tok = l.NextToken()
 			continue
 		}
 
@@ -899,6 +907,7 @@ func (p *CooklangParser) parseQuantityAndUnit(l *lexer.Lexer) (string, string, e
 				quantityParts = append(quantityParts, tok.Literal)
 			}
 		}
+		tok = l.NextToken()
 	}
 
 	// Join quantity parts preserving original spacing
@@ -918,7 +927,7 @@ func (p *CooklangParser) parseQuantityAndUnit(l *lexer.Lexer) (string, string, e
 	unit = strings.TrimSpace(unit)
 
 	// Don't set default units - spec expects empty string when no units provided
-	return quantity, unit, nil
+	return quantity, unit, isFixed, nil
 }
 
 // evaluateFraction converts fraction strings like "1/2" to decimal representation "0.5"
