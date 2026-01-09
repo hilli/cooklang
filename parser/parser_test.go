@@ -1144,3 +1144,180 @@ func TestBlockCommentWithIngredients(t *testing.T) {
 		t.Error("Expected to find block comment")
 	}
 }
+
+// TestNoteParsing tests that notes are correctly parsed
+func TestNoteParsing(t *testing.T) {
+	tests := []struct {
+		name          string
+		input         string
+		expectedSteps int
+		noteText      string
+	}{
+		{
+			name:          "Single note",
+			input:         "> This is a helpful tip.",
+			expectedSteps: 1,
+			noteText:      "This is a helpful tip.",
+		},
+		{
+			name:          "Note followed by content",
+			input:         "> A tip for the cook.\n\nMix @flour{200%g} with water.",
+			expectedSteps: 2,
+			noteText:      "A tip for the cook.",
+		},
+		{
+			name:          "Content followed by note",
+			input:         "Mix @flour{200%g} with water.\n\n> This dish tastes better the next day.",
+			expectedSteps: 2,
+			noteText:      "This dish tastes better the next day.",
+		},
+		{
+			name:          "Multi-line note",
+			input:         "> First line of the note\n> Second line continues here.",
+			expectedSteps: 1,
+			noteText:      "First line of the note Second line continues here.",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			p := New()
+			recipe, err := p.ParseString(tt.input)
+			if err != nil {
+				t.Fatalf("Failed to parse: %v", err)
+			}
+
+			if len(recipe.Steps) != tt.expectedSteps {
+				t.Errorf("Expected %d steps, got %d", tt.expectedSteps, len(recipe.Steps))
+				for i, step := range recipe.Steps {
+					t.Logf("Step %d has %d components", i, len(step.Components))
+					for j, comp := range step.Components {
+						t.Logf("  Component %d: Type=%s, Value=%q", j, comp.Type, comp.Value)
+					}
+				}
+			}
+
+			// Find note component
+			foundNote := false
+			var noteValue string
+			for _, step := range recipe.Steps {
+				for _, comp := range step.Components {
+					if comp.Type == "note" {
+						foundNote = true
+						noteValue = comp.Value
+						break
+					}
+				}
+			}
+
+			if !foundNote {
+				t.Error("Expected to find a note component")
+			}
+
+			if noteValue != tt.noteText {
+				t.Errorf("Expected note text %q, got %q", tt.noteText, noteValue)
+			}
+		})
+	}
+}
+
+// TestMultipleNotes tests that multiple notes are correctly parsed
+func TestMultipleNotes(t *testing.T) {
+	input := `> First helpful tip.
+
+Mix @flour{200%g} and @water{100%ml}.
+
+> Second tip for serving.
+
+> Third tip about storage.`
+
+	p := New()
+	recipe, err := p.ParseString(input)
+	if err != nil {
+		t.Fatalf("Failed to parse: %v", err)
+	}
+
+	// Count notes
+	noteCount := 0
+	noteTexts := []string{}
+	for _, step := range recipe.Steps {
+		for _, comp := range step.Components {
+			if comp.Type == "note" {
+				noteCount++
+				noteTexts = append(noteTexts, comp.Value)
+			}
+		}
+	}
+
+	expectedNotes := []string{
+		"First helpful tip.",
+		"Second tip for serving.",
+		"Third tip about storage.",
+	}
+
+	if noteCount != len(expectedNotes) {
+		t.Errorf("Expected %d notes, got %d", len(expectedNotes), noteCount)
+		t.Logf("Found notes: %v", noteTexts)
+	}
+
+	for i, expected := range expectedNotes {
+		if i < len(noteTexts) && noteTexts[i] != expected {
+			t.Errorf("Note %d: expected %q, got %q", i, expected, noteTexts[i])
+		}
+	}
+}
+
+// TestNoteWithSections tests that notes work correctly with sections
+func TestNoteWithSections(t *testing.T) {
+	input := `= Preparation
+> Prep tip: mise en place makes everything easier.
+
+Add @salt{1%tsp} to the bowl.
+
+= Cooking
+> Cooking tip: don't rush this step.
+
+Cook for ~{10%minutes}.`
+
+	p := New()
+	recipe, err := p.ParseString(input)
+	if err != nil {
+		t.Fatalf("Failed to parse: %v", err)
+	}
+
+	// Find sections and notes
+	foundPrepSection := false
+	foundCookingSection := false
+	foundPrepNote := false
+	foundCookingNote := false
+
+	for _, step := range recipe.Steps {
+		for _, comp := range step.Components {
+			if comp.Type == "section" && comp.Name == "Preparation" {
+				foundPrepSection = true
+			}
+			if comp.Type == "section" && comp.Name == "Cooking" {
+				foundCookingSection = true
+			}
+			if comp.Type == "note" && comp.Value == "Prep tip: mise en place makes everything easier." {
+				foundPrepNote = true
+			}
+			if comp.Type == "note" && comp.Value == "Cooking tip: don't rush this step." {
+				foundCookingNote = true
+			}
+		}
+	}
+
+	if !foundPrepSection {
+		t.Error("Expected to find Preparation section")
+	}
+	if !foundCookingSection {
+		t.Error("Expected to find Cooking section")
+	}
+	if !foundPrepNote {
+		t.Error("Expected to find prep note")
+	}
+	if !foundCookingNote {
+		t.Error("Expected to find cooking note")
+	}
+}

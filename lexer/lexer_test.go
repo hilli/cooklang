@@ -456,6 +456,97 @@ func TestBlockComment(t *testing.T) {
 	}
 }
 
+// TestLineComment tests single-line comment tokenization (-- comment)
+func TestLineComment(t *testing.T) {
+	tests := []struct {
+		name           string
+		input          string
+		expectedTokens []struct {
+			tokenType token.TokenType
+			literal   string
+		}
+	}{
+		{
+			name:  "simple line comment",
+			input: "-- this is a comment",
+			expectedTokens: []struct {
+				tokenType token.TokenType
+				literal   string
+			}{
+				{token.COMMENT, "this is a comment"},
+				{token.EOF, ""},
+			},
+		},
+		{
+			name:  "line comment followed by content",
+			input: "-- a comment\nMix flour",
+			expectedTokens: []struct {
+				tokenType token.TokenType
+				literal   string
+			}{
+				{token.COMMENT, "a comment"},
+				{token.NEWLINE, "\n"},
+				{token.IDENT, "Mix"},
+				{token.WHITESPACE, " "},
+				{token.IDENT, "flour"},
+				{token.EOF, ""},
+			},
+		},
+		{
+			name:  "line comment after content",
+			input: "Mix flour\n-- a comment",
+			expectedTokens: []struct {
+				tokenType token.TokenType
+				literal   string
+			}{
+				{token.IDENT, "Mix"},
+				{token.WHITESPACE, " "},
+				{token.IDENT, "flour"},
+				{token.NEWLINE, "\n"},
+				{token.COMMENT, "a comment"},
+				{token.EOF, ""},
+			},
+		},
+		{
+			name:  "empty line comment",
+			input: "--",
+			expectedTokens: []struct {
+				tokenType token.TokenType
+				literal   string
+			}{
+				{token.COMMENT, ""},
+				{token.EOF, ""},
+			},
+		},
+		{
+			name:  "line comment with extra dashes",
+			input: "-- comment with -- dashes",
+			expectedTokens: []struct {
+				tokenType token.TokenType
+				literal   string
+			}{
+				{token.COMMENT, "comment with -- dashes"},
+				{token.EOF, ""},
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			l := New(tt.input)
+			for i, expected := range tt.expectedTokens {
+				tok := l.NextToken()
+				if tok.Type != expected.tokenType {
+					t.Errorf("token[%d]: expected type %s, got %s", i, expected.tokenType, tok.Type)
+				}
+				if tok.Literal != expected.literal {
+					t.Errorf("token[%d]: expected literal %q, got %q", i, expected.literal, tok.Literal)
+				}
+			}
+		})
+	}
+}
+
 // TestNote tests note block tokenization
 func TestNote(t *testing.T) {
 	tests := []struct {
