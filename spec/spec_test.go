@@ -14,7 +14,7 @@ import (
 func Test_Spec(t *testing.T) {
 	var specification spec_test.CanonicalTests
 
-	for _, specFile := range []string{"canonical.yaml", "extended.yaml"} {
+	for _, specFile := range []string{"canonical.yaml", "extended.yaml", "canonical_extensions.yaml"} {
 		t.Run(specFile, func(t *testing.T) {
 			// Don't know if we are going to keep all specs forever, so lets not break the tests if a spec file is missing or empty.
 			if fileInfo, err := os.Stat(specFile); os.IsNotExist(err) || fileInfo.Size() == 0 {
@@ -26,8 +26,8 @@ func Test_Spec(t *testing.T) {
 			}
 
 			p := parser.New()
-			// Enable extended mode for extended.yaml spec file
-			if specFile == "extended.yaml" {
+			// Enable extended mode for extended.yaml and canonical_extensions.yaml spec files
+			if specFile == "extended.yaml" || specFile == "canonical_extensions.yaml" {
 				p.ExtendedMode = true
 			}
 			for testName, spec := range specification.Tests {

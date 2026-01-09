@@ -218,6 +218,11 @@ Second layer: @cheese{150%g} and @tomato{3}.`
 		log.Fatal(err)
 	}
 
+	// Sort ingredients by name for consistent output
+	sort.Slice(collected.Ingredients, func(i, j int) bool {
+		return collected.Ingredients[i].Name < collected.Ingredients[j].Name
+	})
+
 	fmt.Println("Shopping list:")
 	for _, ing := range collected.Ingredients {
 		if ing.Unit != "" {

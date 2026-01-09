@@ -142,6 +142,10 @@ func (mr MarkdownRenderer) RenderRecipe(recipe *cooklang.Recipe) string {
 				result.WriteString("\n\n")
 				stepNum++
 			}
+		} else if note, ok := firstComp.(*cooklang.Note); ok {
+			// Render notes as blockquotes without step numbers
+			result.WriteString(fmt.Sprintf("> %s\n\n", note.Text))
+			// Don't increment step number for notes
 		} else {
 			result.WriteString(fmt.Sprintf("%d. ", stepNum))
 
@@ -201,6 +205,9 @@ func (mr MarkdownRenderer) renderComponent(result *strings.Builder, currentCompo
 	case *cooklang.Comment:
 		// Render comments as italicized text
 		fmt.Fprintf(result, "*(%s)*", comp.Text)
+	case *cooklang.Note:
+		// Render notes as blockquotes (Markdown style)
+		fmt.Fprintf(result, "\n\n> %s\n\n", comp.Text)
 	}
 }
 

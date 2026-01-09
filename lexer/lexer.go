@@ -86,6 +86,13 @@ func (l *Lexer) NextToken() token.Token {
 			return l.readSectionHeader()
 		}
 		tok = newToken(token.SECTION, l.ch)
+	case '>': // Note block
+		// Check if this is at the start of a line (note block)
+		if l.position == 0 || (l.position > 0 && (l.input[l.position-1] == '\n' || l.input[l.position-1] == '\r')) {
+			return l.readNote()
+		}
+		// Otherwise treat as regular text
+		tok = newToken(token.ILLEGAL, l.ch)
 	case '-':
 		if l.peekChar() == '-' {
 			if l.peekCharAt(1) == '-' {
@@ -458,5 +465,75 @@ func (l *Lexer) readSectionHeader() token.Token {
 	return token.Token{
 		Type:    token.SECTION_HEADER,
 		Literal: sectionName,
+	}
+}
+
+// readNote reads a note block starting with > and continuing until a blank line
+// Notes can span multiple lines, each optionally starting with >
+// Per spec: all > markers are stripped from the output
+func (l *Lexer) readNote() token.Token {
+	var noteContent strings.Builder
+
+	for {
+		// Skip the > character at start of line
+		if l.ch == '>' {
+			l.readChar()
+		}
+
+		// Skip whitespace after >
+		for l.ch == ' ' || l.ch == '\t' {
+			l.readChar()
+		}
+
+		// Read content until end of line
+		lineStart := l.position
+		for l.ch != '\n' && l.ch != '\r' && l.ch != 0 {
+			l.readChar()
+		}
+
+		// Add the line content
+		lineContent := l.input[lineStart:l.position]
+		if noteContent.Len() > 0 && len(lineContent) > 0 {
+			noteContent.WriteString(" ") // Join lines with space
+		}
+		noteContent.WriteString(lineContent)
+
+		// Check for newline
+		switch l.ch {
+		case '\r':
+			l.readChar() // consume \r
+			if l.ch == '\n' {
+				l.readChar() // consume \n in CRLF
+			}
+		case '\n':
+			l.readChar() // consume \n
+		}
+
+		// Check if next line continues the note (starts with > or is non-blank continuation)
+		// A blank line ends the note
+		if l.ch == 0 {
+			break // EOF
+		}
+
+		// Check for blank line (end of note)
+		if l.ch == '\n' || l.ch == '\r' {
+			break // Blank line ends the note
+		}
+
+		// If next line starts with >, continue reading the note
+		if l.ch == '>' {
+			continue
+		}
+
+		// Per spec: lines can continue without > too (until blank line)
+		// But we need to check if it's actually content or another block type
+		// For simplicity, only continue if line starts with > (stricter interpretation)
+		// This avoids consuming regular recipe steps as part of notes
+		break
+	}
+
+	return token.Token{
+		Type:    token.NOTE,
+		Literal: strings.TrimSpace(noteContent.String()),
 	}
 }

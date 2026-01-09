@@ -455,3 +455,198 @@ func TestBlockComment(t *testing.T) {
 		})
 	}
 }
+
+// TestLineComment tests single-line comment tokenization (-- comment)
+func TestLineComment(t *testing.T) {
+	tests := []struct {
+		name           string
+		input          string
+		expectedTokens []struct {
+			tokenType token.TokenType
+			literal   string
+		}
+	}{
+		{
+			name:  "simple line comment",
+			input: "-- this is a comment",
+			expectedTokens: []struct {
+				tokenType token.TokenType
+				literal   string
+			}{
+				{token.COMMENT, "this is a comment"},
+				{token.EOF, ""},
+			},
+		},
+		{
+			name:  "line comment followed by content",
+			input: "-- a comment\nMix flour",
+			expectedTokens: []struct {
+				tokenType token.TokenType
+				literal   string
+			}{
+				{token.COMMENT, "a comment"},
+				{token.NEWLINE, "\n"},
+				{token.IDENT, "Mix"},
+				{token.WHITESPACE, " "},
+				{token.IDENT, "flour"},
+				{token.EOF, ""},
+			},
+		},
+		{
+			name:  "line comment after content",
+			input: "Mix flour\n-- a comment",
+			expectedTokens: []struct {
+				tokenType token.TokenType
+				literal   string
+			}{
+				{token.IDENT, "Mix"},
+				{token.WHITESPACE, " "},
+				{token.IDENT, "flour"},
+				{token.NEWLINE, "\n"},
+				{token.COMMENT, "a comment"},
+				{token.EOF, ""},
+			},
+		},
+		{
+			name:  "empty line comment",
+			input: "--",
+			expectedTokens: []struct {
+				tokenType token.TokenType
+				literal   string
+			}{
+				{token.COMMENT, ""},
+				{token.EOF, ""},
+			},
+		},
+		{
+			name:  "line comment with extra dashes",
+			input: "-- comment with -- dashes",
+			expectedTokens: []struct {
+				tokenType token.TokenType
+				literal   string
+			}{
+				{token.COMMENT, "comment with -- dashes"},
+				{token.EOF, ""},
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			l := New(tt.input)
+			for i, expected := range tt.expectedTokens {
+				tok := l.NextToken()
+				if tok.Type != expected.tokenType {
+					t.Errorf("token[%d]: expected type %s, got %s", i, expected.tokenType, tok.Type)
+				}
+				if tok.Literal != expected.literal {
+					t.Errorf("token[%d]: expected literal %q, got %q", i, expected.literal, tok.Literal)
+				}
+			}
+		})
+	}
+}
+
+// TestNote tests note block tokenization
+func TestNote(t *testing.T) {
+	tests := []struct {
+		name           string
+		input          string
+		expectedTokens []struct {
+			tokenType token.TokenType
+			literal   string
+		}
+	}{
+		{
+			name:  "simple single-line note",
+			input: "> This is a note.",
+			expectedTokens: []struct {
+				tokenType token.TokenType
+				literal   string
+			}{
+				{token.NOTE, "This is a note."},
+				{token.EOF, ""},
+			},
+		},
+		{
+			name:  "multi-line note",
+			input: "> First line\n> Second line",
+			expectedTokens: []struct {
+				tokenType token.TokenType
+				literal   string
+			}{
+				{token.NOTE, "First line Second line"},
+				{token.EOF, ""},
+			},
+		},
+		{
+			name:  "note followed by blank line and content",
+			input: "> This is a note.\n\nMix flour",
+			expectedTokens: []struct {
+				tokenType token.TokenType
+				literal   string
+			}{
+				{token.NOTE, "This is a note."},
+				{token.NEWLINE, "\n"}, // The blank line (readNote consumes the first newline)
+				{token.IDENT, "Mix"},
+				{token.WHITESPACE, " "},
+				{token.IDENT, "flour"},
+				{token.EOF, ""},
+			},
+		},
+		{
+			name:  "note after content",
+			input: "Mix flour\n> A helpful tip",
+			expectedTokens: []struct {
+				tokenType token.TokenType
+				literal   string
+			}{
+				{token.IDENT, "Mix"},
+				{token.WHITESPACE, " "},
+				{token.IDENT, "flour"},
+				{token.NEWLINE, "\n"},
+				{token.NOTE, "A helpful tip"},
+				{token.EOF, ""},
+			},
+		},
+		{
+			name:  "note with extra whitespace after >",
+			input: ">   Extra spaces here",
+			expectedTokens: []struct {
+				tokenType token.TokenType
+				literal   string
+			}{
+				{token.NOTE, "Extra spaces here"},
+				{token.EOF, ""},
+			},
+		},
+		{
+			name:  "multiple notes separated by blank line",
+			input: "> First note\n\n> Second note",
+			expectedTokens: []struct {
+				tokenType token.TokenType
+				literal   string
+			}{
+				{token.NOTE, "First note"},
+				{token.NEWLINE, "\n"}, // The blank line (readNote consumes the first newline)
+				{token.NOTE, "Second note"},
+				{token.EOF, ""},
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			l := New(tt.input)
+			for i, expected := range tt.expectedTokens {
+				tok := l.NextToken()
+				if tok.Type != expected.tokenType {
+					t.Errorf("token[%d]: expected type %s, got %s", i, expected.tokenType, tok.Type)
+				}
+				if tok.Literal != expected.literal {
+					t.Errorf("token[%d]: expected literal %q, got %q", i, expected.literal, tok.Literal)
+				}
+			}
+		})
+	}
+}

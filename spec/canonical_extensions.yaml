@@ -1,0 +1,324 @@
+# Cooklang Canonical Extensions
+# 
+# These are extended syntax features documented in the official Cooklang specification
+# at https://cooklang.org/docs/spec/ under the "Advanced" section, but not yet included
+# in the canonical.yaml test suite from the official spec repository.
+#
+# Features covered:
+# - Block comments [- comment -]
+# - Sections (= Section Name =)
+# - Notes (> note text)
+#
+# Note: These tests reflect the current parser behavior. Single newlines are converted
+# to spaces and combine content into the same step. Double newlines (blank lines) 
+# separate content into different steps.
+
+version: 1
+tests:
+  # ==========================================
+  # Block Comments [- comment -]
+  # ==========================================
+
+  testBlockCommentSimple:
+    source: |
+      [- This is a block comment -]
+    result:
+      steps:
+        -
+          - type: blockComment
+            value: "This is a block comment"
+      metadata: {}
+
+  testBlockCommentInline:
+    source: |
+      Add @salt{1%tsp} [- adjust to taste -] and stir.
+    result:
+      steps:
+        -
+          - type: text
+            value: "Add "
+          - type: ingredient
+            name: "salt"
+            quantity: 1
+            units: "tsp"
+          - type: text
+            value: " "
+          - type: blockComment
+            value: "adjust to taste"
+          - type: text
+            value: " and stir."
+      metadata: {}
+
+  testBlockCommentEmpty:
+    source: |
+      [--]
+    result:
+      steps:
+        -
+          - type: blockComment
+            value: ""
+      metadata: {}
+
+  testBlockCommentWithSpecialCharacters:
+    source: |
+      [- Comment with @special #characters ~inside -]
+    result:
+      steps:
+        -
+          - type: blockComment
+            value: "Comment with @special #characters ~inside"
+      metadata: {}
+
+  # ==========================================
+  # Sections = Section Name =
+  # ==========================================
+
+  testSectionSimple:
+    source: |
+      = Preparation =
+    result:
+      steps:
+        -
+          - type: section
+            name: "Preparation"
+      metadata: {}
+
+  # Section followed by content on next line combines into single step
+  # (single newline converts to space and joins them)
+  testSectionWithContent:
+    source: |
+      = Dough =
+      Mix @flour{500%g} with @water{300%ml}.
+    result:
+      steps:
+        -
+          - type: section
+            name: "Dough"
+          - type: text
+            value: " Mix "
+          - type: ingredient
+            name: "flour"
+            quantity: 500
+            units: "g"
+          - type: text
+            value: " with "
+          - type: ingredient
+            name: "water"
+            quantity: 300
+            units: "ml"
+          - type: text
+            value: "."
+      metadata: {}
+
+  # Sections separated by blank lines are in different steps
+  # Section and its following content (single newline) are combined
+  testMultipleSections:
+    source: |
+      = First Section =
+      Do something.
+
+      = Second Section =
+      Do something else.
+    result:
+      steps:
+        -
+          - type: section
+            name: "First Section"
+          - type: text
+            value: " Do something."
+        -
+          - type: section
+            name: "Second Section"
+          - type: text
+            value: " Do something else."
+      metadata: {}
+
+  testSectionNoTrailingEquals:
+    source: |
+      = Just a Header
+    result:
+      steps:
+        -
+          - type: section
+            name: "Just a Header"
+      metadata: {}
+
+  # ==========================================
+  # Notes > note text
+  # ==========================================
+
+  testNoteSimple:
+    source: |
+      > This is a helpful tip for the recipe.
+    result:
+      steps:
+        -
+          - type: note
+            value: "This is a helpful tip for the recipe."
+      metadata: {}
+
+  # Note followed by blank line and content creates separate steps
+  testNoteWithContentAfter:
+    source: |
+      > Chef's tip: let the dough rest.
+
+      Now knead the @dough{}.
+    result:
+      steps:
+        -
+          - type: note
+            value: "Chef's tip: let the dough rest."
+        -
+          - type: text
+            value: "Now knead the "
+          - type: ingredient
+            name: "dough"
+            quantity: "some"
+            units: ""
+          - type: text
+            value: "."
+      metadata: {}
+
+  # Consecutive notes (single newline) get combined into one note
+  testNoteMultipleConsecutive:
+    source: |
+      > First note line.
+      > Second note line continues the thought.
+    result:
+      steps:
+        -
+          - type: note
+            value: "First note line. Second note line continues the thought."
+      metadata: {}
+
+  testNoteWithSpecialCharacters:
+    source: |
+      > Note with @symbol and #hash but not parsed as ingredients.
+    result:
+      steps:
+        -
+          - type: note
+            value: "Note with @symbol and #hash but not parsed as ingredients."
+      metadata: {}
+
+  # ==========================================
+  # Combined Extended Features
+  # ==========================================
+
+  # Section followed by note on next line creates section with trailing space
+  # then note is in its own step due to how notes work
+  testSectionWithNotes:
+    source: |
+      = Making the Sauce =
+      > This sauce is best made the day before.
+
+      Simmer @tomatoes{400%g} in #pot{}.
+    result:
+      steps:
+        -
+          - type: section
+            name: "Making the Sauce"
+          - type: text
+            value: " "
+        -
+          - type: note
+            value: "This sauce is best made the day before."
+        -
+          - type: text
+            value: "Simmer "
+          - type: ingredient
+            name: "tomatoes"
+            quantity: 400
+            units: "g"
+          - type: text
+            value: " in "
+          - type: cookware
+            name: "pot"
+            quantity: 1
+          - type: text
+            value: "."
+      metadata: {}
+
+  # ==========================================
+  # Fixed Quantities =quantity
+  # ==========================================
+
+  testFixedQuantitySimple:
+    source: |
+      Add @salt{=1%tsp} to the dough.
+    result:
+      steps:
+        -
+          - type: text
+            value: "Add "
+          - type: ingredient
+            name: "salt"
+            quantity: 1
+            units: "tsp"
+            fixed: true
+          - type: text
+            value: " to the dough."
+      metadata: {}
+
+  testFixedQuantityNoUnit:
+    source: |
+      Use @yeast{=1} packet.
+    result:
+      steps:
+        -
+          - type: text
+            value: "Use "
+          - type: ingredient
+            name: "yeast"
+            quantity: 1
+            units: ""
+            fixed: true
+          - type: text
+            value: " packet."
+      metadata: {}
+
+  testFixedQuantityMixed:
+    source: |
+      Mix @flour{500%g} with @water{300%ml} and @salt{=1%tsp}.
+    result:
+      steps:
+        -
+          - type: text
+            value: "Mix "
+          - type: ingredient
+            name: "flour"
+            quantity: 500
+            units: "g"
+          - type: text
+            value: " with "
+          - type: ingredient
+            name: "water"
+            quantity: 300
+            units: "ml"
+          - type: text
+            value: " and "
+          - type: ingredient
+            name: "salt"
+            quantity: 1
+            units: "tsp"
+            fixed: true
+          - type: text
+            value: "."
+      metadata: {}
+
+  testFixedQuantityDecimal:
+    source: |
+      Add @baking powder{=0.5%tsp} to the mix.
+    result:
+      steps:
+        -
+          - type: text
+            value: "Add "
+          - type: ingredient
+            name: "baking powder"
+            quantity: 0.5
+            units: "tsp"
+            fixed: true
+          - type: text
+            value: " to the mix."
+      metadata: {}
