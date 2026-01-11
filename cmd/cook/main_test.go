@@ -185,9 +185,22 @@ func TestCLI_Render_HTML(t *testing.T) {
 		t.Fatalf("render html command failed: %v\nstderr: %s", err, stderr)
 	}
 
-	// Check for HTML elements
-	if !strings.Contains(stdout, "<") || !strings.Contains(stdout, ">") {
-		t.Errorf("expected HTML output, got: %s", stdout)
+	// Check for complete HTML document structure
+	expectedStrings := []string{
+		"<!DOCTYPE html>",
+		"<html lang=\"en\">",
+		"<meta charset=\"UTF-8\">",
+		"<title>Negroni</title>",
+		"</head>",
+		"<body>",
+		"<div class=\"recipe\">",
+		"</body>",
+		"</html>",
+	}
+	for _, expected := range expectedStrings {
+		if !strings.Contains(stdout, expected) {
+			t.Errorf("HTML output missing %q", expected)
+		}
 	}
 }
 
@@ -216,6 +229,35 @@ func TestCLI_Scale(t *testing.T) {
 	// Scaled recipe should have doubled quantities (50ml -> 100ml)
 	if !strings.Contains(stdout, "100") {
 		t.Errorf("scaled output doesn't show doubled quantities")
+	}
+}
+
+func TestCLI_Scale_HTML(t *testing.T) {
+	recipePath := getExampleRecipePath("Negroni.cook")
+
+	stdout, stderr, err := runCLI("scale", recipePath, "--servings", "2", "--format", "html")
+	if err != nil {
+		t.Fatalf("scale html command failed: %v\nstderr: %s", err, stderr)
+	}
+
+	// Check for complete HTML document structure
+	expectedStrings := []string{
+		"<!DOCTYPE html>",
+		"<html lang=\"en\">",
+		"<meta charset=\"UTF-8\">",
+		"<title>Negroni</title>",
+		"</body>",
+		"</html>",
+	}
+	for _, expected := range expectedStrings {
+		if !strings.Contains(stdout, expected) {
+			t.Errorf("scale HTML output missing %q", expected)
+		}
+	}
+
+	// Check that scaling worked (100ml instead of 50ml)
+	if !strings.Contains(stdout, "100") {
+		t.Errorf("scaled HTML output doesn't show doubled quantities")
 	}
 }
 
