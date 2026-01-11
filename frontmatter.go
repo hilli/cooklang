@@ -69,11 +69,15 @@ func NewFrontmatterEditor(filePath string) (*FrontmatterEditor, error) {
 // GetMetadata retrieves a metadata value by key.
 // It checks structured fields first (title, cuisine, etc.) then falls back to the generic metadata map.
 //
+// For array fields (tags, images), the value is returned as a comma-separated string.
+// Use [FrontmatterEditor.AppendToArray] and [FrontmatterEditor.RemoveFromArray] for
+// individual item operations.
+//
 // Parameters:
 //   - key: The metadata key to retrieve
 //
 // Returns:
-//   - string: The metadata value
+//   - string: The metadata value (comma-separated for array fields)
 //   - bool: true if the key exists, false otherwise
 //
 // Example:
@@ -81,6 +85,9 @@ func NewFrontmatterEditor(filePath string) (*FrontmatterEditor, error) {
 //	editor, _ := cooklang.NewFrontmatterEditor("recipe.cook")
 //	if title, ok := editor.GetMetadata("title"); ok {
 //	    fmt.Printf("Recipe title: %s\n", title)
+//	}
+//	if tags, ok := editor.GetMetadata("tags"); ok {
+//	    fmt.Printf("Tags: %s\n", tags) // e.g., "italian, pasta, quick"
 //	}
 func (fe *FrontmatterEditor) GetMetadata(key string) (string, bool) {
 	// Check structured fields first
@@ -199,12 +206,16 @@ func (fe *FrontmatterEditor) GetAllMetadata() map[string]string {
 }
 
 // SetMetadata sets or updates a metadata value.
-// For array fields (tags, images), the value can be comma-separated.
+// For array fields (tags, images), the value should be comma-separated; it will be
+// split and stored as a []string internally. To add/remove individual items without
+// replacing the entire array, use [FrontmatterEditor.AppendToArray] and
+// [FrontmatterEditor.RemoveFromArray] instead.
+//
 // For structured fields (servings, date), the value is validated and parsed.
 //
 // Parameters:
 //   - key: The metadata key to set
-//   - value: The value to set (format depends on the field type)
+//   - value: The value to set (comma-separated for array fields)
 //
 // Returns:
 //   - error: Validation error for structured fields (e.g., invalid date format)
@@ -214,7 +225,7 @@ func (fe *FrontmatterEditor) GetAllMetadata() map[string]string {
 //	editor, _ := cooklang.NewFrontmatterEditor("recipe.cook")
 //	editor.SetMetadata("title", "Amazing Lasagna")
 //	editor.SetMetadata("servings", "6")
-//	editor.SetMetadata("tags", "italian, pasta, main course")
+//	editor.SetMetadata("tags", "italian, pasta, main course") // replaces all tags
 //	editor.SetMetadata("date", "2024-01-15")
 //	editor.Save()
 func (fe *FrontmatterEditor) SetMetadata(key, value string) error {
@@ -551,11 +562,12 @@ func splitAndTrim(s string) []string {
 }
 
 // AppendToArray appends a value to an array field (tags or images).
-// Only array fields (tags, images) are supported.
+// Unlike [FrontmatterEditor.SetMetadata], this adds a single item without replacing existing values.
+// The underlying storage is []string, not a comma-separated string.
 //
 // Parameters:
 //   - key: The array field name ("tags" or "images")
-//   - value: The value to append
+//   - value: The single value to append
 //
 // Returns:
 //   - error: An error if the field is not an array field
@@ -563,8 +575,9 @@ func splitAndTrim(s string) []string {
 // Example:
 //
 //	editor, _ := cooklang.NewFrontmatterEditor("recipe.cook")
-//	editor.AppendToArray("tags", "vegetarian")
-//	editor.AppendToArray("tags", "healthy")
+//	// Assuming tags are currently ["italian"]
+//	editor.AppendToArray("tags", "vegetarian") // tags: ["italian", "vegetarian"]
+//	editor.AppendToArray("tags", "healthy")    // tags: ["italian", "vegetarian", "healthy"]
 //	editor.Save()
 func (fe *FrontmatterEditor) AppendToArray(key, value string) error {
 	switch key {
@@ -579,11 +592,11 @@ func (fe *FrontmatterEditor) AppendToArray(key, value string) error {
 }
 
 // RemoveFromArray removes a value from an array field (tags or images).
-// All occurrences of the value are removed.
+// All occurrences of the value are removed. The underlying storage is []string.
 //
 // Parameters:
 //   - key: The array field name ("tags" or "images")
-//   - value: The value to remove
+//   - value: The single value to remove
 //
 // Returns:
 //   - error: An error if the field is not an array field
@@ -591,7 +604,8 @@ func (fe *FrontmatterEditor) AppendToArray(key, value string) error {
 // Example:
 //
 //	editor, _ := cooklang.NewFrontmatterEditor("recipe.cook")
-//	editor.RemoveFromArray("tags", "unhealthy")
+//	// Assuming tags are currently ["italian", "unhealthy", "quick"]
+//	editor.RemoveFromArray("tags", "unhealthy") // tags: ["italian", "quick"]
 //	editor.Save()
 func (fe *FrontmatterEditor) RemoveFromArray(key, value string) error {
 	switch key {
