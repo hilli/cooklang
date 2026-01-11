@@ -26,8 +26,8 @@ Examples:
   cook ingredients recipe.cook
   cook ingredients recipe.cook --consolidate
   cook ingredients recipe1.cook recipe2.cook --consolidate
-  cook ingredients *.cook --consolidate --unit=kg
-  cook ingredients recipe.cook --unit=metric
+  cook ingredients *.cook --consolidate --unit metric
+  cook ingredients recipe.cook --unit imperial
   cook ingredients recipe.cook --json`,
 	Args:              cobra.MinimumNArgs(1),
 	RunE:              runIngredients,
@@ -37,7 +37,7 @@ Examples:
 func init() {
 	ingredientsCmd.Flags().BoolVarP(&ingredientsJSON, "json", "j", false, "Output as JSON")
 	ingredientsCmd.Flags().BoolVarP(&ingredientsConsolidate, "consolidate", "c", false, "Consolidate ingredients with the same name")
-	ingredientsCmd.Flags().StringVarP(&ingredientsTargetUnit, "unit", "u", "", "Convert to target unit or system (e.g., g, kg, ml, metric, imperial, us)")
+	ingredientsCmd.Flags().StringVarP(&ingredientsTargetUnit, "unit", "u", "", "Convert to unit system (metric, imperial, us)")
 	rootCmd.AddCommand(ingredientsCmd)
 
 	// Register completion for the --unit flag
@@ -73,31 +73,18 @@ func getUnitSystem(unit string) (cooklang.UnitSystem, bool) {
 	}
 }
 
-// convertIngredientList converts all ingredients to the target unit or system
-func convertIngredientList(ingredients *cooklang.IngredientList, targetUnit string) *cooklang.IngredientList {
+// convertIngredientList converts all ingredients to the target unit system
+func convertIngredientList(ingredients *cooklang.IngredientList, targetUnit string) (*cooklang.IngredientList, error) {
 	if targetUnit == "" {
-		return ingredients
+		return ingredients, nil
 	}
 
-	// Check if it's a unit system
-	if system, isSystem := getUnitSystem(targetUnit); isSystem {
-		return ingredients.ConvertToSystem(system)
+	system, isSystem := getUnitSystem(targetUnit)
+	if !isSystem {
+		return nil, fmt.Errorf("invalid unit system: %s (use metric, imperial, or us)", targetUnit)
 	}
 
-	// Otherwise, try to convert each ingredient to the specific unit
-	result := cooklang.NewIngredientList()
-	for _, ing := range ingredients.Ingredients {
-		if ing.CanConvertTo(targetUnit) {
-			converted, err := ing.ConvertTo(targetUnit)
-			if err == nil {
-				result.Add(converted)
-				continue
-			}
-		}
-		// If conversion not possible, keep original
-		result.Add(ing)
-	}
-	return result
+	return ingredients.ConvertToSystem(system), nil
 }
 
 func displaySingleRecipeIngredients(recipe *cooklang.Recipe, filename string) error {
@@ -105,7 +92,11 @@ func displaySingleRecipeIngredients(recipe *cooklang.Recipe, filename string) er
 
 	// Apply unit conversion if requested
 	if ingredientsTargetUnit != "" {
-		ingredients = convertIngredientList(ingredients, ingredientsTargetUnit)
+		var err error
+		ingredients, err = convertIngredientList(ingredients, ingredientsTargetUnit)
+		if err != nil {
+			return err
+		}
 	}
 
 	if ingredientsJSON {
@@ -129,6 +120,13 @@ func displaySingleRecipeIngredients(recipe *cooklang.Recipe, filename string) er
 }
 
 func displayConsolidatedIngredients(recipes []*cooklang.Recipe, filenames []string) error {
+	// Validate unit system early if provided
+	if ingredientsTargetUnit != "" {
+		if _, isSystem := getUnitSystem(ingredientsTargetUnit); !isSystem {
+			return fmt.Errorf("invalid unit system: %s (use metric, imperial, or us)", ingredientsTargetUnit)
+		}
+	}
+
 	// Collect all ingredients
 	allIngredients := cooklang.NewIngredientList()
 	for _, recipe := range recipes {
@@ -143,12 +141,13 @@ func displayConsolidatedIngredients(recipes []*cooklang.Recipe, filenames []stri
 	var err error
 
 	if ingredientsConsolidate {
-		// For consolidation with a unit system, convert first then consolidate
+		// Convert to unit system first if requested, then consolidate
 		if system, isSystem := getUnitSystem(ingredientsTargetUnit); isSystem {
 			converted := allIngredients.ConvertToSystem(system)
 			finalList, err = converted.ConsolidateByName("")
 		} else {
-			finalList, err = allIngredients.ConsolidateByName(ingredientsTargetUnit)
+			// No unit conversion, just consolidate
+			finalList, err = allIngredients.ConsolidateByName("")
 		}
 		if err != nil {
 			printWarning("Some ingredients could not be consolidated: %v", err)
@@ -156,11 +155,14 @@ func displayConsolidatedIngredients(recipes []*cooklang.Recipe, filenames []stri
 		}
 	} else {
 		finalList = allIngredients
-	}
-
-	// Apply unit conversion if not already done during consolidation
-	if ingredientsTargetUnit != "" && !ingredientsConsolidate {
-		finalList = convertIngredientList(finalList, ingredientsTargetUnit)
+		// Apply unit conversion if requested (without consolidation)
+		if ingredientsTargetUnit != "" {
+			var convErr error
+			finalList, convErr = convertIngredientList(finalList, ingredientsTargetUnit)
+			if convErr != nil {
+				return convErr
+			}
+		}
 	}
 
 	if ingredientsJSON {

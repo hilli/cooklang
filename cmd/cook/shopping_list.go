@@ -41,7 +41,7 @@ Examples:
   cook list meal-prep.cook --scale 2.0
 
   # Convert units while scaling to servings
-  cook list recipes/*.cook --servings 4 --unit kg
+  cook list recipes/*.cook --servings 4 --unit metric
 
   # Simple output format
   cook list meal-prep.cook --simple`,
@@ -54,7 +54,7 @@ func init() {
 	shoppingListCmd.Flags().BoolVarP(&shoppingListJSON, "json", "j", false, "Output as JSON")
 	shoppingListCmd.Flags().Float64VarP(&shoppingListScale, "scale", "S", 1.0, "Scale all quantities by this factor")
 	shoppingListCmd.Flags().IntVarP(&shoppingListServings, "servings", "s", 0, "Scale each recipe to this many servings before combining")
-	shoppingListCmd.Flags().StringVarP(&shoppingListUnit, "unit", "u", "", "Convert to target unit (e.g., g, kg, ml)")
+	shoppingListCmd.Flags().StringVarP(&shoppingListUnit, "unit", "u", "", "Convert to unit system (metric, imperial, us)")
 	shoppingListCmd.Flags().BoolVar(&shoppingListSimple, "simple", false, "Simple format (ingredient: quantity)")
 	rootCmd.AddCommand(shoppingListCmd)
 
@@ -69,6 +69,25 @@ func runShoppingList(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("cannot specify both --servings and --scale; use --servings to normalize recipes to a household size, or --scale to multiply the final list")
 	}
 
+	// Validate unit system if provided
+	var unitSystem cooklang.UnitSystem
+	hasUnitSystem := false
+	if shoppingListUnit != "" {
+		switch shoppingListUnit {
+		case "metric":
+			unitSystem = cooklang.UnitSystemMetric
+			hasUnitSystem = true
+		case "imperial":
+			unitSystem = cooklang.UnitSystemImperial
+			hasUnitSystem = true
+		case "us":
+			unitSystem = cooklang.UnitSystemUS
+			hasUnitSystem = true
+		default:
+			return fmt.Errorf("invalid unit system: %s (use metric, imperial, or us)", shoppingListUnit)
+		}
+	}
+
 	recipes, err := readMultipleRecipes(args)
 	if err != nil {
 		return err
@@ -79,25 +98,21 @@ func runShoppingList(cmd *cobra.Command, args []string) error {
 
 	if shoppingListServings > 0 {
 		// Scale each recipe to target servings before combining
-		if shoppingListUnit != "" {
-			shoppingList, err = cooklang.CreateShoppingListForServingsWithUnit(float64(shoppingListServings), shoppingListUnit, recipes...)
-		} else {
-			shoppingList, err = cooklang.CreateShoppingListForServings(float64(shoppingListServings), recipes...)
-		}
+		shoppingList, err = cooklang.CreateShoppingListForServings(float64(shoppingListServings), recipes...)
 		if err != nil {
 			printWarning("Some ingredients could not be consolidated: %v", err)
 		}
 		printInfo("Scaled each recipe to %d servings", shoppingListServings)
-	} else if shoppingListUnit != "" {
-		shoppingList, err = cooklang.CreateShoppingListWithUnit(shoppingListUnit, recipes...)
-		if err != nil {
-			printWarning("Some ingredients could not be consolidated: %v", err)
-		}
 	} else {
 		shoppingList, err = cooklang.CreateShoppingList(recipes...)
 		if err != nil {
 			printWarning("Some ingredients could not be consolidated: %v", err)
 		}
+	}
+
+	// Convert to unit system if requested
+	if hasUnitSystem {
+		shoppingList.Ingredients = shoppingList.Ingredients.ConvertToSystem(unitSystem)
 	}
 
 	// Scale if requested (only when not using --servings)

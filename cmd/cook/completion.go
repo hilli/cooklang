@@ -35,25 +35,12 @@ func completeCookFiles(_ *cobra.Command, _ []string, toComplete string) ([]strin
 	return matches, cobra.ShellCompDirectiveNoSpace
 }
 
-// completeUnitFlag provides shell completion for the --unit flag
-func completeUnitFlag(_ *cobra.Command, _ []string, toComplete string) ([]string, cobra.ShellCompDirective) {
+// completeUnitFlag provides shell completion for the --unit flag (unit systems only)
+func completeUnitFlag(_ *cobra.Command, _ []string, _ string) ([]string, cobra.ShellCompDirective) {
 	units := []string{
-		// Unit systems
-		"metric\tConvert to metric units (g, ml, etc.)",
-		"imperial\tConvert to imperial units (oz, fl oz, etc.)",
-		"us\tConvert to US customary units (cup, tbsp, etc.)",
-		// Common mass units
-		"g\tgrams",
-		"kg\tkilograms",
-		"oz\tounces",
-		"lb\tpounds",
-		// Common volume units
-		"ml\tmilliliters",
-		"l\tliters",
-		"cup\tcups",
-		"tbsp\ttablespoons",
-		"tsp\tteaspoons",
-		"fl oz\tfluid ounces",
+		"metric\tConvert to metric units (g, kg, ml, l)",
+		"imperial\tConvert to imperial units (oz, lb, fl oz)",
+		"us\tConvert to US customary units (cup, tbsp, tsp)",
 	}
 	return units, cobra.ShellCompDirectiveNoFileComp
 }
