@@ -69,11 +69,15 @@ func NewFrontmatterEditor(filePath string) (*FrontmatterEditor, error) {
 // GetMetadata retrieves a metadata value by key.
 // It checks structured fields first (title, cuisine, etc.) then falls back to the generic metadata map.
 //
+// For array fields (tags, images), the value is returned as a comma-separated string.
+// Use [FrontmatterEditor.AppendToArray] and [FrontmatterEditor.RemoveFromArray] for
+// individual item operations.
+//
 // Parameters:
 //   - key: The metadata key to retrieve
 //
 // Returns:
-//   - string: The metadata value
+//   - string: The metadata value (comma-separated for array fields)
 //   - bool: true if the key exists, false otherwise
 //
 // Example:
@@ -81,6 +85,9 @@ func NewFrontmatterEditor(filePath string) (*FrontmatterEditor, error) {
 //	editor, _ := cooklang.NewFrontmatterEditor("recipe.cook")
 //	if title, ok := editor.GetMetadata("title"); ok {
 //	    fmt.Printf("Recipe title: %s\n", title)
+//	}
+//	if tags, ok := editor.GetMetadata("tags"); ok {
+//	    fmt.Printf("Tags: %s\n", tags) // e.g., "italian, pasta, quick"
 //	}
 func (fe *FrontmatterEditor) GetMetadata(key string) (string, bool) {
 	// Check structured fields first
@@ -139,7 +146,19 @@ func (fe *FrontmatterEditor) GetMetadata(key string) (string, bool) {
 	return "", false
 }
 
-// GetAllMetadata returns all metadata as a map
+// GetAllMetadata returns all metadata as a map.
+// This includes both structured fields (title, cuisine, etc.) and custom metadata.
+//
+// Returns:
+//   - map[string]string: All metadata key-value pairs
+//
+// Example:
+//
+//	editor, _ := cooklang.NewFrontmatterEditor("recipe.cook")
+//	allMeta := editor.GetAllMetadata()
+//	for key, value := range allMeta {
+//	    fmt.Printf("%s: %s\n", key, value)
+//	}
 func (fe *FrontmatterEditor) GetAllMetadata() map[string]string {
 	result := make(map[string]string)
 
@@ -187,12 +206,16 @@ func (fe *FrontmatterEditor) GetAllMetadata() map[string]string {
 }
 
 // SetMetadata sets or updates a metadata value.
-// For array fields (tags, images), the value can be comma-separated.
+// For array fields (tags, images), the value should be comma-separated; it will be
+// split and stored as a []string internally. To add/remove individual items without
+// replacing the entire array, use [FrontmatterEditor.AppendToArray] and
+// [FrontmatterEditor.RemoveFromArray] instead.
+//
 // For structured fields (servings, date), the value is validated and parsed.
 //
 // Parameters:
 //   - key: The metadata key to set
-//   - value: The value to set (format depends on the field type)
+//   - value: The value to set (comma-separated for array fields)
 //
 // Returns:
 //   - error: Validation error for structured fields (e.g., invalid date format)
@@ -202,7 +225,7 @@ func (fe *FrontmatterEditor) GetAllMetadata() map[string]string {
 //	editor, _ := cooklang.NewFrontmatterEditor("recipe.cook")
 //	editor.SetMetadata("title", "Amazing Lasagna")
 //	editor.SetMetadata("servings", "6")
-//	editor.SetMetadata("tags", "italian, pasta, main course")
+//	editor.SetMetadata("tags", "italian, pasta, main course") // replaces all tags
 //	editor.SetMetadata("date", "2024-01-15")
 //	editor.Save()
 func (fe *FrontmatterEditor) SetMetadata(key, value string) error {
@@ -260,7 +283,21 @@ func (fe *FrontmatterEditor) SetMetadata(key, value string) error {
 	return nil
 }
 
-// DeleteMetadata removes a metadata key
+// DeleteMetadata removes a metadata key from the recipe.
+// For structured fields, this clears the value. For custom fields, it removes the entry.
+//
+// Parameters:
+//   - key: The metadata key to delete
+//
+// Returns:
+//   - error: Currently always returns nil (reserved for future validation)
+//
+// Example:
+//
+//	editor, _ := cooklang.NewFrontmatterEditor("recipe.cook")
+//	editor.DeleteMetadata("author")
+//	editor.DeleteMetadata("custom_field")
+//	editor.Save()
 func (fe *FrontmatterEditor) DeleteMetadata(key string) error {
 	// Clear structured fields
 	switch key {
@@ -324,7 +361,20 @@ func (fe *FrontmatterEditor) Save() error {
 	return fe.SaveAs(fe.filePath)
 }
 
-// SaveAs writes the updated recipe to a specified file
+// SaveAs writes the updated recipe to a specified file path.
+// The recipe body (instructions) is preserved; only the frontmatter is updated.
+//
+// Parameters:
+//   - filePath: The destination file path
+//
+// Returns:
+//   - error: Any error encountered during file writing
+//
+// Example:
+//
+//	editor, _ := cooklang.NewFrontmatterEditor("recipe.cook")
+//	editor.SetMetadata("title", "Updated Recipe")
+//	editor.SaveAs("recipe_v2.cook")
 func (fe *FrontmatterEditor) SaveAs(filePath string) error {
 	// Get the recipe content after frontmatter
 	recipeBody := fe.extractRecipeBody()
@@ -348,19 +398,33 @@ func (fe *FrontmatterEditor) SaveAs(filePath string) error {
 	return nil
 }
 
-// GetContent returns the current file content
+// GetContent returns the original file content as read from disk.
+//
+// Returns:
+//   - string: The original file content
 func (fe *FrontmatterEditor) GetContent() string {
 	return fe.content
 }
 
-// GetUpdatedContent returns the updated content without saving to disk
+// GetUpdatedContent returns the updated content without saving to disk.
+// This is useful for previewing changes before committing them.
+//
+// Returns:
+//   - string: The complete file content with updated frontmatter
+//
+// Example:
+//
+//	editor, _ := cooklang.NewFrontmatterEditor("recipe.cook")
+//	editor.SetMetadata("title", "Preview")
+//	preview := editor.GetUpdatedContent()
+//	fmt.Println(preview) // See changes without saving
 func (fe *FrontmatterEditor) GetUpdatedContent() string {
 	recipeBody := fe.extractRecipeBody()
 	frontmatter := fe.renderFrontmatter()
 	return frontmatter + "\n" + recipeBody
 }
 
-// extractRecipeBody extracts the recipe content after the frontmatter
+// extractRecipeBody extracts the recipe content (instructions) after the frontmatter.
 func (fe *FrontmatterEditor) extractRecipeBody() string {
 	// Match YAML frontmatter delimited by ---
 	re := regexp.MustCompile(`(?s)^---\n.*?\n---\n`)
@@ -382,7 +446,7 @@ func (fe *FrontmatterEditor) extractRecipeBody() string {
 	return strings.TrimLeft(body, "\n")
 }
 
-// renderFrontmatter renders the current recipe metadata as YAML frontmatter
+// renderFrontmatter renders the current recipe metadata as YAML frontmatter.
 func (fe *FrontmatterEditor) renderFrontmatter() string {
 	var lines []string
 	lines = append(lines, "---")
@@ -455,7 +519,7 @@ func (fe *FrontmatterEditor) renderFrontmatter() string {
 	return strings.Join(lines, "\n")
 }
 
-// renderYAMLValue renders a key-value pair, using block scalar syntax for multi-line values
+// renderYAMLValue renders a key-value pair, using block scalar syntax for multi-line values.
 func renderYAMLValue(key, value string) []string {
 	// Check if value contains newlines
 	if strings.Contains(value, "\n") {
@@ -470,7 +534,7 @@ func renderYAMLValue(key, value string) []string {
 	return []string{fmt.Sprintf("%s: %s", key, value)}
 }
 
-// isStandardField checks if a key is a standard structured field
+// isStandardField checks if a key is a standard structured field.
 func isStandardField(key string) bool {
 	standardFields := []string{
 		"title", "cuisine", "description", "difficulty", "author",
@@ -484,7 +548,7 @@ func isStandardField(key string) bool {
 	return false
 }
 
-// splitAndTrim splits a comma-separated string and trims whitespace
+// splitAndTrim splits a comma-separated string and trims whitespace from each part.
 func splitAndTrim(s string) []string {
 	parts := strings.Split(s, ",")
 	result := make([]string, 0, len(parts))
@@ -497,7 +561,24 @@ func splitAndTrim(s string) []string {
 	return result
 }
 
-// AppendToArray appends a value to an array field (tags or images)
+// AppendToArray appends a value to an array field (tags or images).
+// Unlike [FrontmatterEditor.SetMetadata], this adds a single item without replacing existing values.
+// The underlying storage is []string, not a comma-separated string.
+//
+// Parameters:
+//   - key: The array field name ("tags" or "images")
+//   - value: The single value to append
+//
+// Returns:
+//   - error: An error if the field is not an array field
+//
+// Example:
+//
+//	editor, _ := cooklang.NewFrontmatterEditor("recipe.cook")
+//	// Assuming tags are currently ["italian"]
+//	editor.AppendToArray("tags", "vegetarian") // tags: ["italian", "vegetarian"]
+//	editor.AppendToArray("tags", "healthy")    // tags: ["italian", "vegetarian", "healthy"]
+//	editor.Save()
 func (fe *FrontmatterEditor) AppendToArray(key, value string) error {
 	switch key {
 	case "tags":
@@ -510,7 +591,22 @@ func (fe *FrontmatterEditor) AppendToArray(key, value string) error {
 	return nil
 }
 
-// RemoveFromArray removes a value from an array field (tags or images)
+// RemoveFromArray removes a value from an array field (tags or images).
+// All occurrences of the value are removed. The underlying storage is []string.
+//
+// Parameters:
+//   - key: The array field name ("tags" or "images")
+//   - value: The single value to remove
+//
+// Returns:
+//   - error: An error if the field is not an array field
+//
+// Example:
+//
+//	editor, _ := cooklang.NewFrontmatterEditor("recipe.cook")
+//	// Assuming tags are currently ["italian", "unhealthy", "quick"]
+//	editor.RemoveFromArray("tags", "unhealthy") // tags: ["italian", "quick"]
+//	editor.Save()
 func (fe *FrontmatterEditor) RemoveFromArray(key, value string) error {
 	switch key {
 	case "tags":
@@ -523,7 +619,7 @@ func (fe *FrontmatterEditor) RemoveFromArray(key, value string) error {
 	return nil
 }
 
-// removeFromSlice removes all occurrences of a value from a slice
+// removeFromSlice removes all occurrences of a value from a slice.
 func removeFromSlice(slice []string, value string) []string {
 	result := make([]string, 0, len(slice))
 	for _, item := range slice {

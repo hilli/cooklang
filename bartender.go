@@ -74,7 +74,21 @@ var cocktailUnits = []CocktailUnit{
 	{Name: "l", Aliases: []string{"liter", "liters", "litre", "litres", "L"}, MlValue: 1000, USValue: 1000 / MlPerOz, System: UnitSystemMetric},
 }
 
-// GetCocktailUnit looks up a unit by name (case-insensitive)
+// GetCocktailUnit looks up a unit by name (case-insensitive).
+// It searches both primary names and aliases for cocktail-related units.
+//
+// Parameters:
+//   - name: The unit name to look up (e.g., "oz", "dash", "ml")
+//
+// Returns:
+//   - *CocktailUnit: The matching unit info, or nil if not found
+//
+// Example:
+//
+//	unit := cooklang.GetCocktailUnit("fl oz")
+//	if unit != nil {
+//	    fmt.Printf("1 %s = %.1f ml\n", unit.Name, unit.MlValue)
+//	}
 func GetCocktailUnit(name string) *CocktailUnit {
 	normalizedName := strings.ToLower(strings.TrimSpace(name))
 	for i := range cocktailUnits {
@@ -90,7 +104,19 @@ func GetCocktailUnit(name string) *CocktailUnit {
 	return nil
 }
 
-// DetectUnitSystemFromUnit determines the unit system from a single unit name
+// DetectUnitSystemFromUnit determines the unit system from a single unit name.
+// Returns UnitSystemUnknown if the unit is not recognized or is cocktail-specific.
+//
+// Parameters:
+//   - unitName: The unit to check (e.g., "ml", "oz", "cup")
+//
+// Returns:
+//   - UnitSystem: The detected system (UnitSystemMetric, UnitSystemUS, or UnitSystemUnknown)
+//
+// Example:
+//
+//	system := cooklang.DetectUnitSystemFromUnit("cup")
+//	// system == UnitSystemUS
 func DetectUnitSystemFromUnit(unitName string) UnitSystem {
 	unit := GetCocktailUnit(unitName)
 	if unit != nil && unit.System != "" {
@@ -99,7 +125,23 @@ func DetectUnitSystemFromUnit(unitName string) UnitSystem {
 	return UnitSystemUnknown
 }
 
-// DetectIngredientListUnitSystem detects the dominant unit system in an ingredient list
+// DetectIngredientListUnitSystem detects the dominant unit system in an ingredient list.
+// It counts US vs metric units and returns the more common one.
+// Returns UnitSystemUS as default when tied (most cocktail recipes are US-based).
+//
+// Parameters:
+//   - il: The ingredient list to analyze
+//
+// Returns:
+//   - UnitSystem: The dominant system, or UnitSystemUnknown if no units found
+//
+// Example:
+//
+//	ingredients := cocktail.GetIngredients()
+//	system := cooklang.DetectIngredientListUnitSystem(ingredients)
+//	if system == cooklang.UnitSystemMetric {
+//	    fmt.Println("Recipe uses metric measurements")
+//	}
 func DetectIngredientListUnitSystem(il *IngredientList) UnitSystem {
 	if il == nil {
 		return UnitSystemUnknown
@@ -140,8 +182,27 @@ type SmartUnitResult struct {
 	Original string  // Original formatted value for reference
 }
 
-// SelectBestUnit chooses the most appropriate unit for a given volume in ml
-// This is used in bartender mode to pick human-friendly units
+// SelectBestUnit chooses the most appropriate unit for a given volume in ml.
+// This is used in bartender mode to pick human-friendly units.
+//
+// Features:
+//   - Very small amounts (≤3ml) → dashes
+//   - Small amounts → barspoons or fractional oz
+//   - Standard amounts → oz with nice fractions
+//   - Large amounts → cups
+//   - Metric: rounds to nearest 5ml for readability
+//
+// Parameters:
+//   - mlValue: The volume in milliliters
+//   - targetSystem: The desired unit system (UnitSystemMetric or UnitSystemUS)
+//
+// Returns:
+//   - SmartUnitResult: Contains the converted value and selected unit
+//
+// Example:
+//
+//	result := cooklang.SelectBestUnit(45, cooklang.UnitSystemUS)
+//	fmt.Printf("%v %s\n", result.Value, result.Unit) // "1.5 oz"
 func SelectBestUnit(mlValue float64, targetSystem UnitSystem) SmartUnitResult {
 	// For very small amounts (<= 3 ml), use dashes
 	// This threshold captures amounts like 1/12 oz (2.5ml) = ~3 dashes
@@ -165,7 +226,8 @@ func SelectBestUnit(mlValue float64, targetSystem UnitSystem) SmartUnitResult {
 	return selectBestUSUnit(mlValue)
 }
 
-// selectBestMetricUnit picks the best metric unit
+// selectBestMetricUnit picks the best metric unit for a given ml value.
+// Rounds to nearest 5ml for amounts ≥10ml, or nearest 2.5ml for smaller amounts.
 func selectBestMetricUnit(mlValue float64) SmartUnitResult {
 	// Round to nearest 5 for amounts >= 10ml
 	if mlValue >= 10 {
@@ -187,7 +249,8 @@ func selectBestMetricUnit(mlValue float64) SmartUnitResult {
 	return SmartUnitResult{Value: rounded, Unit: "ml"}
 }
 
-// selectBestUSUnit picks the best US unit for a given ml value
+// selectBestUSUnit picks the best US unit for a given ml value.
+// Uses bartender-friendly fractions and appropriate units for the quantity.
 func selectBestUSUnit(mlValue float64) SmartUnitResult {
 	ozValue := mlValue / MlPerOz
 
@@ -228,7 +291,21 @@ func selectBestUSUnit(mlValue float64) SmartUnitResult {
 	return SmartUnitResult{Value: RoundToNiceFraction(ozValue, 0.05), Unit: "oz"}
 }
 
-// ConvertVolumeBartender converts a volume from one unit to another using bartender-friendly rounding
+// ConvertVolumeBartender converts a volume from one unit to another using bartender-friendly rounding.
+// First converts to ml, then selects the best unit in the target system.
+//
+// Parameters:
+//   - value: The numeric quantity to convert
+//   - fromUnit: The source unit (e.g., "oz", "ml")
+//   - toSystem: The target unit system
+//
+// Returns:
+//   - SmartUnitResult: Contains the converted value and selected unit
+//
+// Example:
+//
+//	result := cooklang.ConvertVolumeBartender(1.5, "oz", cooklang.UnitSystemMetric)
+//	fmt.Printf("%v %s\n", result.Value, result.Unit) // "45 ml"
 func ConvertVolumeBartender(value float64, fromUnit string, toSystem UnitSystem) SmartUnitResult {
 	// First convert to ml
 	fromUnitInfo := GetCocktailUnit(fromUnit)
@@ -243,7 +320,19 @@ func ConvertVolumeBartender(value float64, fromUnit string, toSystem UnitSystem)
 	return SelectBestUnit(mlValue, toSystem)
 }
 
-// FormatBartenderValue formats a value with the appropriate unit for display
+// FormatBartenderValue formats a SmartUnitResult for display with fractions and pluralization.
+// Uses fraction formatting (e.g., "1 1/2" instead of "1.5") and handles unit pluralization.
+//
+// Parameters:
+//   - result: The SmartUnitResult to format
+//
+// Returns:
+//   - string: Formatted string (e.g., "1 1/2 oz", "3 dashes")
+//
+// Example:
+//
+//	result := cooklang.SmartUnitResult{Value: 1.5, Unit: "oz"}
+//	fmt.Println(cooklang.FormatBartenderValue(result)) // "1 1/2 oz"
 func FormatBartenderValue(result SmartUnitResult) string {
 	// Use fraction formatting for nice display
 	valueStr := FormatAsFractionDefault(result.Value)
@@ -267,14 +356,40 @@ func FormatBartenderValue(result SmartUnitResult) string {
 	return valueStr + " " + unit
 }
 
-// IsCocktailSpecificUnit returns true if the unit is cocktail-specific (dash, splash, etc.)
+// IsCocktailSpecificUnit returns true if the unit is cocktail-specific (dash, splash, etc.).
+// Cocktail-specific units are universal and should not be converted between systems.
+//
+// Parameters:
+//   - unitName: The unit to check
+//
+// Returns:
+//   - bool: true if the unit is cocktail-specific
+//
+// Example:
+//
+//	cooklang.IsCocktailSpecificUnit("dash")   // true
+//	cooklang.IsCocktailSpecificUnit("oz")     // false
 func IsCocktailSpecificUnit(unitName string) bool {
 	unit := GetCocktailUnit(unitName)
 	return unit != nil && unit.IsCocktail
 }
 
-// ShouldSkipConversion returns true if conversion should be skipped
-// (e.g., source and target systems are the same)
+// ShouldSkipConversion returns true if unit conversion should be skipped.
+// Conversion is skipped when the source unit is already in the target system,
+// or when the unit is cocktail-specific (universal units like dash, splash).
+//
+// Parameters:
+//   - sourceUnit: The current unit
+//   - targetSystem: The desired unit system
+//
+// Returns:
+//   - bool: true if conversion should be skipped
+//
+// Example:
+//
+//	cooklang.ShouldSkipConversion("ml", cooklang.UnitSystemMetric) // true (already metric)
+//	cooklang.ShouldSkipConversion("dash", cooklang.UnitSystemUS)   // true (cocktail-specific)
+//	cooklang.ShouldSkipConversion("ml", cooklang.UnitSystemUS)     // false (needs conversion)
 func ShouldSkipConversion(sourceUnit string, targetSystem UnitSystem) bool {
 	sourceSystem := DetectUnitSystemFromUnit(sourceUnit)
 

@@ -84,10 +84,10 @@ func TestNewIngredientVsManualCreation(t *testing.T) {
 
 func TestUnitSystemConversion(t *testing.T) {
 	// Create a test recipe with metric ingredients
-	testRecipe := `
->> title: Test Recipe
->> servings: 4
-
+	testRecipe := `---
+title: Test Recipe
+servings: 4
+---
 Mix @flour{500%g} with @milk{250%ml} and @sugar{50%g}.
 Add @butter{125%g} and @vanilla extract{5%ml}.
 `

@@ -1,13 +1,11 @@
 module github.com/hilli/cooklang
 
-go 1.24.3
-
-// yaml lib used to read the cooklang spec only. Swap to github.com/yaml/go-yaml at some point later this month (/Hilli 2025-06-01)
-require github.com/goccy/go-yaml v1.18.0
+go 1.24
 
 require (
 	github.com/bcicen/go-units v1.0.5
-	github.com/spf13/cobra v1.10.1
+	github.com/goccy/go-yaml v1.19.2
+	github.com/spf13/cobra v1.10.2
 )
 
 require (

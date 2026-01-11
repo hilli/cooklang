@@ -3,7 +3,9 @@ package main
 import (
 	"encoding/json"
 	"fmt"
+	"html"
 	"os"
+	"strings"
 
 	"github.com/hilli/cooklang"
 	"github.com/hilli/cooklang/parser"
@@ -66,4 +68,25 @@ func printWarning(format string, args ...interface{}) {
 // printInfo prints an info message
 func printInfo(format string, args ...interface{}) {
 	fmt.Printf("ℹ "+format+"\n", args...)
+}
+
+// wrapHTMLDocument wraps an HTML fragment in a complete HTML document with proper charset
+func wrapHTMLDocument(content string, recipe *cooklang.Recipe) string {
+	var sb strings.Builder
+	sb.WriteString("<!DOCTYPE html>\n")
+	sb.WriteString("<html lang=\"en\">\n")
+	sb.WriteString("<head>\n")
+	sb.WriteString("  <meta charset=\"UTF-8\">\n")
+	sb.WriteString("  <meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\">\n")
+	if recipe.Title != "" {
+		sb.WriteString(fmt.Sprintf("  <title>%s</title>\n", html.EscapeString(recipe.Title)))
+	} else {
+		sb.WriteString("  <title>Recipe</title>\n")
+	}
+	sb.WriteString("</head>\n")
+	sb.WriteString("<body>\n")
+	sb.WriteString(content)
+	sb.WriteString("</body>\n")
+	sb.WriteString("</html>\n")
+	return sb.String()
 }

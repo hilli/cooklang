@@ -38,22 +38,15 @@ func Test_Reparser(t *testing.T) {
 	t.Logf("Parsed Recipe: %#v", pRecipe)
 	recipe := ToCooklangRecipe(pRecipe)
 	if recipe == nil {
-		t.Fatal("Failed to convert parsed recipe to CooklangRecipe")
+		t.Fatal("Failed to convert parsed recipe to Recipe")
 	}
-	// fmt.Printf("Recipe: %+v\n", recipe)
-
-	// Test basic rendering (using default renderer)
-	// output := recipe.Render()
-	// if output == "" {
-	// 	t.Error("Recipe rendering should not be empty")
-	// }
-
 }
 
 func TestGetCookware(t *testing.T) {
-	recipe := `>> title: Test Recipe
->> servings: 4
-
+	recipe := `---
+title: Test Recipe
+servings: 4
+---
 Cook the @pasta{500%g} in a #pot{} until al dente.
 
 Transfer to a #serving bowl{} and add @cheese{100%g}.
@@ -81,8 +74,9 @@ Bake in an #oven{} at 180°C for ~{30%minutes}.
 }
 
 func TestGetCookwareWithQuantities(t *testing.T) {
-	recipe := `>> title: Test Recipe
-
+	recipe := `---
+title: Test Recipe
+---
 Mix ingredients in #bowl{2}.
 `
 	parsed, err := ParseString(recipe)
@@ -106,8 +100,9 @@ Mix ingredients in #bowl{2}.
 }
 
 func TestGetCookwareEmpty(t *testing.T) {
-	recipe := `>> title: Test Recipe
-
+	recipe := `---
+title: Test Recipe
+---
 Mix @flour{200%g} with @water{100%ml}.
 `
 	parsed, err := ParseString(recipe)

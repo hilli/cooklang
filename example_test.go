@@ -538,3 +538,102 @@ func ExampleCookware() {
 	// large pot
 	// wooden spoons (×2)
 }
+
+// ExampleRecipe_Scale demonstrates scaling a recipe by a factor
+func ExampleRecipe_Scale() {
+	recipeText := `---
+title: Pancakes
+servings: 2
+---
+Mix @flour{200%g} with @milk{300%ml} and @eggs{2}.`
+
+	recipe, _ := cooklang.ParseString(recipeText)
+
+	// Double the recipe
+	doubled := recipe.Scale(2.0)
+
+	fmt.Printf("Original servings: %.0f\n", recipe.Servings)
+	fmt.Printf("Doubled servings: %.0f\n", doubled.Servings)
+
+	// Show scaled ingredients
+	ingredients := doubled.GetIngredients()
+	for _, ing := range ingredients.Ingredients {
+		if ing.Unit != "" {
+			fmt.Printf("- %s: %.0f %s\n", ing.Name, ing.Quantity, ing.Unit)
+		} else {
+			fmt.Printf("- %s: %.0f\n", ing.Name, ing.Quantity)
+		}
+	}
+	// Output:
+	// Original servings: 2
+	// Doubled servings: 4
+	// - flour: 400 g
+	// - milk: 600 ml
+	// - eggs: 4
+}
+
+// ExampleRecipe_ScaleToServings demonstrates scaling a recipe to target servings
+func ExampleRecipe_ScaleToServings() {
+	recipeText := `---
+title: Cookies
+servings: 12
+---
+Mix @flour{300%g}, @sugar{150%g}, and @butter{100%g}.`
+
+	recipe, _ := cooklang.ParseString(recipeText)
+
+	// Scale from 12 to 36 servings (triple)
+	scaled := recipe.ScaleToServings(36)
+
+	fmt.Printf("Original: %.0f servings\n", recipe.Servings)
+	fmt.Printf("Scaled: %.0f servings\n", scaled.Servings)
+
+	ingredients := scaled.GetIngredients()
+	for _, ing := range ingredients.Ingredients {
+		fmt.Printf("- %s: %.0f %s\n", ing.Name, ing.Quantity, ing.Unit)
+	}
+	// Output:
+	// Original: 12 servings
+	// Scaled: 36 servings
+	// - flour: 900 g
+	// - sugar: 450 g
+	// - butter: 300 g
+}
+
+// ExampleCreateShoppingListForServings demonstrates creating a shopping list
+// for a specific number of servings across multiple recipes
+func ExampleCreateShoppingListForServings() {
+	mondayDinner := `---
+title: Pasta
+servings: 2
+---
+Cook @pasta{200%g} with @olive oil{2%tbsp}.`
+
+	tuesdayDinner := `---
+title: Rice Bowl
+servings: 1
+---
+Serve @rice{150%g} with @olive oil{1%tbsp}.`
+
+	recipe1, _ := cooklang.ParseString(mondayDinner)
+	recipe2, _ := cooklang.ParseString(tuesdayDinner)
+
+	// Create shopping list for 4 servings of each recipe
+	list, err := cooklang.CreateShoppingListForServings(4, recipe1, recipe2)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	fmt.Println("Shopping list (4 servings each):")
+	ingredientMap := list.ToMap()
+
+	// Print in deterministic order
+	fmt.Printf("- olive oil: %s\n", ingredientMap["olive oil"])
+	fmt.Printf("- pasta: %s\n", ingredientMap["pasta"])
+	fmt.Printf("- rice: %s\n", ingredientMap["rice"])
+	// Output:
+	// Shopping list (4 servings each):
+	// - olive oil: 8 tbsp
+	// - pasta: 400 g
+	// - rice: 600 g
+}

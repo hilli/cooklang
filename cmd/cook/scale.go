@@ -45,8 +45,9 @@ Examples:
 
   # Scale and output as JSON
   cook scale recipe.cook --factor 0.5 --json`,
-	Args: cobra.ExactArgs(1),
-	RunE: runScale,
+	Args:              cobra.ExactArgs(1),
+	RunE:              runScale,
+	ValidArgsFunction: completeCookFiles,
 }
 
 func init() {
@@ -58,6 +59,11 @@ func init() {
 	scaleCmd.Flags().StringVarP(&scaleOutput, "output", "o", "", "Output file (default: stdout)")
 	scaleCmd.Flags().StringVar(&scaleFormat, "format", "cooklang", "Output format: cooklang, markdown, html, json")
 	scaleCmd.Flags().BoolVar(&scaleJSON, "json", false, "Output as JSON")
+
+	// Register flag completions
+	_ = scaleCmd.RegisterFlagCompletionFunc("servings", completeServingsFlag)
+	_ = scaleCmd.RegisterFlagCompletionFunc("unit", completeUnitFlag)
+	_ = scaleCmd.RegisterFlagCompletionFunc("format", completeFormatFlag)
 }
 
 func runScale(cmd *cobra.Command, args []string) error {
@@ -184,7 +190,7 @@ func formatScaledRecipe(recipe *cooklang.Recipe, format string) (string, error) 
 		return renderer.RenderRecipe(recipe), nil
 	case "html":
 		renderer := renderers.NewHTMLRenderer()
-		return renderer.RenderRecipe(recipe), nil
+		return wrapHTMLDocument(renderer.RenderRecipe(recipe), recipe), nil
 	case "json":
 		return formatScaledJSON(recipe, 1.0)
 	default:

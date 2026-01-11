@@ -2,16 +2,18 @@ package main
 
 import (
 	"fmt"
+	"sort"
 
 	"github.com/hilli/cooklang"
 	"github.com/spf13/cobra"
 )
 
 var (
-	shoppingListJSON   bool
-	shoppingListScale  float64
-	shoppingListUnit   string
-	shoppingListSimple bool
+	shoppingListJSON     bool
+	shoppingListScale    float64
+	shoppingListServings int
+	shoppingListUnit     string
+	shoppingListSimple   bool
 )
 
 var shoppingListCmd = &cobra.Command{
@@ -23,25 +25,70 @@ var shoppingListCmd = &cobra.Command{
 Automatically consolidates ingredients with the same name and compatible units.
 Perfect for meal planning and batch cooking.
 
+Options:
+  --servings N  Scale each recipe to N servings before combining (ideal for meal planning)
+  --scale F     Scale the final shopping list by factor F (for batch cooking)
+  
+Note: --servings and --scale are mutually exclusive.
+
 Examples:
+  # Basic shopping list from multiple recipes
   cook shopping-list dinner.cook dessert.cook
-  cook shop monday.cook tuesday.cook wednesday.cook
-  cook list *.cook --scale=2.0
-  cook list recipes/*.cook --unit=kg
+
+  # Meal planning: scale all recipes to 4 servings (household size)
+  cook shop monday.cook tuesday.cook wednesday.cook --servings 4
+
+  # Batch cooking: double the entire shopping list
+  cook list meal-prep.cook --scale 2.0
+
+  # Convert units while scaling to servings
+  cook list recipes/*.cook --servings 4 --unit metric
+
+  # Simple output format
   cook list meal-prep.cook --simple`,
-	Args: cobra.MinimumNArgs(1),
-	RunE: runShoppingList,
+	Args:              cobra.MinimumNArgs(1),
+	RunE:              runShoppingList,
+	ValidArgsFunction: completeCookFiles,
 }
 
 func init() {
 	shoppingListCmd.Flags().BoolVarP(&shoppingListJSON, "json", "j", false, "Output as JSON")
-	shoppingListCmd.Flags().Float64VarP(&shoppingListScale, "scale", "s", 1.0, "Scale all quantities by this factor")
-	shoppingListCmd.Flags().StringVarP(&shoppingListUnit, "unit", "u", "", "Convert to target unit (e.g., g, kg, ml)")
+	shoppingListCmd.Flags().Float64VarP(&shoppingListScale, "scale", "S", 1.0, "Scale all quantities by this factor")
+	shoppingListCmd.Flags().IntVarP(&shoppingListServings, "servings", "s", 0, "Scale each recipe to this many servings before combining")
+	shoppingListCmd.Flags().StringVarP(&shoppingListUnit, "unit", "u", "", "Convert to unit system (metric, imperial, us)")
 	shoppingListCmd.Flags().BoolVar(&shoppingListSimple, "simple", false, "Simple format (ingredient: quantity)")
 	rootCmd.AddCommand(shoppingListCmd)
+
+	// Register flag completions
+	_ = shoppingListCmd.RegisterFlagCompletionFunc("servings", completeServingsFlag)
+	_ = shoppingListCmd.RegisterFlagCompletionFunc("unit", completeUnitFlag)
 }
 
 func runShoppingList(cmd *cobra.Command, args []string) error {
+	// Validate mutual exclusivity of --servings and --scale
+	if shoppingListServings > 0 && shoppingListScale != 1.0 {
+		return fmt.Errorf("cannot specify both --servings and --scale; use --servings to normalize recipes to a household size, or --scale to multiply the final list")
+	}
+
+	// Validate unit system if provided
+	var unitSystem cooklang.UnitSystem
+	hasUnitSystem := false
+	if shoppingListUnit != "" {
+		switch shoppingListUnit {
+		case "metric":
+			unitSystem = cooklang.UnitSystemMetric
+			hasUnitSystem = true
+		case "imperial":
+			unitSystem = cooklang.UnitSystemImperial
+			hasUnitSystem = true
+		case "us":
+			unitSystem = cooklang.UnitSystemUS
+			hasUnitSystem = true
+		default:
+			return fmt.Errorf("invalid unit system: %s (use metric, imperial, or us)", shoppingListUnit)
+		}
+	}
+
 	recipes, err := readMultipleRecipes(args)
 	if err != nil {
 		return err
@@ -49,16 +96,27 @@ func runShoppingList(cmd *cobra.Command, args []string) error {
 
 	// Create shopping list
 	var shoppingList *cooklang.ShoppingList
-	if shoppingListUnit != "" {
-		shoppingList, err = cooklang.CreateShoppingListWithUnit(shoppingListUnit, recipes...)
+
+	if shoppingListServings > 0 {
+		// Scale each recipe to target servings before combining
+		shoppingList, err = cooklang.CreateShoppingListForServings(float64(shoppingListServings), recipes...)
+		if err != nil {
+			printWarning("Some ingredients could not be consolidated: %v", err)
+		}
+		printInfo("Scaled each recipe to %d servings", shoppingListServings)
 	} else {
 		shoppingList, err = cooklang.CreateShoppingList(recipes...)
-	}
-	if err != nil {
-		printWarning("Some ingredients could not be consolidated: %v", err)
+		if err != nil {
+			printWarning("Some ingredients could not be consolidated: %v", err)
+		}
 	}
 
-	// Scale if requested
+	// Convert to unit system if requested
+	if hasUnitSystem {
+		shoppingList.Ingredients = shoppingList.Ingredients.ConvertToSystem(unitSystem)
+	}
+
+	// Scale if requested (only when not using --servings)
 	if shoppingListScale != 1.0 {
 		shoppingList = shoppingList.Scale(shoppingListScale)
 	}
@@ -73,35 +131,40 @@ func runShoppingList(cmd *cobra.Command, args []string) error {
 }
 
 func displayShoppingList(list *cooklang.ShoppingList, recipes []*cooklang.Recipe, filenames []string) {
-	fmt.Println("🛒 Shopping List")
+	fmt.Println("Shopping List")
 	fmt.Println(string(make([]byte, 60)))
 
-	// Show recipe sources
+	// Show recipe sources with their original servings
 	if len(recipes) > 1 {
-		fmt.Printf("📚 From %d recipes:\n", len(recipes))
+		fmt.Printf("From %d recipes:\n", len(recipes))
 		for i, recipe := range recipes {
-			if recipe.Title != "" {
-				fmt.Printf("  %d. %s\n", i+1, recipe.Title)
-			} else {
-				fmt.Printf("  %d. %s\n", i+1, filenames[i])
+			title := recipe.Title
+			if title == "" {
+				title = filenames[i]
 			}
+			fmt.Printf("  %d. %s (serves %.0f)\n", i+1, title, recipe.Servings)
 		}
 	} else {
-		if recipes[0].Title != "" {
-			fmt.Printf("📄 Recipe: %s\n", recipes[0].Title)
-		} else {
-			fmt.Printf("📄 From: %s\n", filenames[0])
+		title := recipes[0].Title
+		if title == "" {
+			title = filenames[0]
 		}
+		fmt.Printf("Recipe: %s (serves %.0f)\n", title, recipes[0].Servings)
+	}
+
+	// Show servings scaling info
+	if shoppingListServings > 0 {
+		fmt.Printf("Scaled to: %d servings per recipe\n", shoppingListServings)
 	}
 
 	// Show scaling info
 	if shoppingListScale != 1.0 {
-		fmt.Printf("⚖️  Scaled by: %.1fx\n", shoppingListScale)
+		fmt.Printf("Scaled by: %.1fx\n", shoppingListScale)
 	}
 
 	// Show unit conversion info
 	if shoppingListUnit != "" {
-		fmt.Printf("🔄 Converted to: %s (where possible)\n", shoppingListUnit)
+		fmt.Printf("Converted to: %s (where possible)\n", shoppingListUnit)
 	}
 
 	fmt.Println()
@@ -115,13 +178,21 @@ func displayShoppingList(list *cooklang.ShoppingList, recipes []*cooklang.Recipe
 
 	// Summary
 	fmt.Println()
-	fmt.Printf("📊 Total: %d unique ingredients\n", list.Count())
+	fmt.Printf("Total: %d unique ingredients\n", list.Count())
 }
 
 func displaySimpleShoppingList(list *cooklang.ShoppingList) {
 	shoppingMap := list.ToMap()
-	for name, quantity := range shoppingMap {
-		fmt.Printf("%s: %s\n", name, quantity)
+
+	// Sort keys alphabetically
+	keys := make([]string, 0, len(shoppingMap))
+	for name := range shoppingMap {
+		keys = append(keys, name)
+	}
+	sort.Strings(keys)
+
+	for _, name := range keys {
+		fmt.Printf("%s: %s\n", name, shoppingMap[name])
 	}
 }
 
@@ -175,10 +246,20 @@ func contains(s string, substrs []string) bool {
 	return false
 }
 
+// sortIngredients sorts a slice of ingredients alphabetically by name
+func sortIngredients(ingredients []*cooklang.Ingredient) {
+	sort.Slice(ingredients, func(i, j int) bool {
+		return ingredients[i].Name < ingredients[j].Name
+	})
+}
+
 func displayCategory(title string, ingredients []*cooklang.Ingredient) {
 	if len(ingredients) == 0 {
 		return
 	}
+
+	// Sort alphabetically
+	sortIngredients(ingredients)
 
 	fmt.Printf("\n%s:\n", title)
 	for _, ing := range ingredients {

@@ -123,6 +123,23 @@ Shows how to work with timers in recipes, including named and unnamed timers.
 
 **Key concepts:** Timer extraction, recipe steps
 
+### Recipe Scaling
+
+#### ExampleRecipe_Scale
+Demonstrates scaling a recipe by a factor (e.g., doubling or halving quantities).
+
+**Key concepts:** Recipe scaling, quantity multiplication
+
+#### ExampleRecipe_ScaleToServings
+Shows how to scale a recipe to a specific number of servings.
+
+**Key concepts:** Servings-based scaling, portion adjustment
+
+#### ExampleCreateShoppingListForServings
+Creates a shopping list from multiple recipes, scaling each to a target number of servings.
+
+**Key concepts:** Multi-recipe meal planning, serving-based shopping lists
+
 ### Metadata and Frontmatter
 
 #### ExampleFrontmatterEditor_GetMetadata
@@ -144,7 +161,8 @@ The examples cover the following areas:
 - ✅ Unit conversions (individual and system-wide)
 - ✅ Ingredient consolidation
 - ✅ Shopping list generation (single and multi-recipe)
-- ✅ Recipe scaling
+- ✅ Recipe scaling (by factor and by servings)
+- ✅ Shopping lists for target servings
 - ✅ Cookware extraction
 - ✅ Timer handling
 - ✅ Metadata access
@@ -196,4 +214,3 @@ Failed examples will show a diff between expected and actual output.
 - See the [main README](../README.md) for library overview
 - Check [UNIT_CONVERSION.md](./UNIT_CONVERSION.md) for detailed unit conversion information
 - Review [SHOPPING_LIST.md](./SHOPPING_LIST.md) for shopping list features
-- Read [COLLECTED_INGREDIENTS.md](./COLLECTED_INGREDIENTS.md) for ingredient consolidation details

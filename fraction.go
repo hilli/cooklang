@@ -104,12 +104,25 @@ func FormatAsFraction(value float64, tolerance float64) string {
 	return formatDecimal(value)
 }
 
-// FormatAsFractionDefault uses the default tolerance
+// FormatAsFractionDefault uses the default tolerance for fraction matching.
+// This is a convenience wrapper around FormatAsFraction with DefaultFractionTolerance.
+//
+// Parameters:
+//   - value: The numeric value to format
+//
+// Returns:
+//   - A human-readable string representation
+//
+// Example:
+//
+//	cooklang.FormatAsFractionDefault(0.5)  // "1/2"
+//	cooklang.FormatAsFractionDefault(2.25) // "2 1/4"
+//	cooklang.FormatAsFractionDefault(3.0)  // "3"
 func FormatAsFractionDefault(value float64) string {
 	return FormatAsFraction(value, DefaultFractionTolerance)
 }
 
-// formatDecimal formats a decimal number nicely, removing unnecessary trailing zeros
+// formatDecimal formats a decimal number nicely, removing unnecessary trailing zeros.
 func formatDecimal(value float64) string {
 	// For very small values, use more precision
 	if value > 0 && value < 0.1 {
@@ -128,7 +141,7 @@ func formatDecimal(value float64) string {
 	return trimTrailingZeros(formatted)
 }
 
-// trimTrailingZeros removes unnecessary trailing zeros and decimal point
+// trimTrailingZeros removes unnecessary trailing zeros and decimal point from a formatted number.
 func trimTrailingZeros(s string) string {
 	// Find the decimal point
 	dotIndex := -1
@@ -157,8 +170,23 @@ func trimTrailingZeros(s string) string {
 	return s[:end]
 }
 
-// ParseFraction parses a fraction string into a float64
-// Handles formats like "1/2", "2 1/2", "0.5", "2"
+// ParseFraction parses a fraction string into a float64.
+// Handles multiple formats: simple fractions ("1/2"), mixed numbers ("2 1/2"),
+// decimals ("0.5"), and integers ("2").
+//
+// Parameters:
+//   - s: The string to parse
+//
+// Returns:
+//   - float64: The parsed numeric value
+//   - error: An error if the string cannot be parsed
+//
+// Example:
+//
+//	cooklang.ParseFraction("1/2")     // 0.5, nil
+//	cooklang.ParseFraction("2 1/2")   // 2.5, nil
+//	cooklang.ParseFraction("0.75")    // 0.75, nil
+//	cooklang.ParseFraction("invalid") // 0, error
 func ParseFraction(s string) (float64, error) {
 	// Try parsing as mixed number first (e.g., "2 1/2")
 	var whole, num, den int
@@ -180,7 +208,21 @@ func ParseFraction(s string) (float64, error) {
 	return 0, fmt.Errorf("cannot parse fraction: %s", s)
 }
 
-// IsNiceFraction checks if a value is close to a common fraction
+// IsNiceFraction checks if a value is close to a common fraction.
+// This is useful for determining if a value will format nicely as a fraction.
+//
+// Parameters:
+//   - value: The numeric value to check
+//   - tolerance: How close to a fraction the value must be (e.g., 0.02 = 2%)
+//
+// Returns:
+//   - bool: true if the value matches a common fraction within tolerance
+//
+// Example:
+//
+//	cooklang.IsNiceFraction(0.5, 0.02)   // true (1/2)
+//	cooklang.IsNiceFraction(0.333, 0.02) // true (1/3)
+//	cooklang.IsNiceFraction(0.37, 0.02)  // false
 func IsNiceFraction(value float64, tolerance float64) bool {
 	if tolerance <= 0 {
 		tolerance = DefaultFractionTolerance
@@ -202,8 +244,22 @@ func IsNiceFraction(value float64, tolerance float64) bool {
 	return false
 }
 
-// RoundToNiceFraction rounds a value to the nearest common fraction
-// This is useful for bartender mode where we want clean measurements
+// RoundToNiceFraction rounds a value to the nearest common fraction.
+// This is useful for bartender mode where clean measurements are preferred.
+// If no common fraction is within tolerance, the original value is returned.
+//
+// Parameters:
+//   - value: The numeric value to round
+//   - tolerance: Maximum difference to accept for rounding (e.g., 0.02 = 2%)
+//
+// Returns:
+//   - float64: The rounded value, or original if no good match
+//
+// Example:
+//
+//	cooklang.RoundToNiceFraction(0.48, 0.05)  // 0.5 (rounds to 1/2)
+//	cooklang.RoundToNiceFraction(0.26, 0.02)  // 0.25 (rounds to 1/4)
+//	cooklang.RoundToNiceFraction(0.37, 0.02)  // 0.37 (no good match)
 func RoundToNiceFraction(value float64, tolerance float64) float64 {
 	if tolerance <= 0 {
 		tolerance = DefaultFractionTolerance

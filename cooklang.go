@@ -49,11 +49,6 @@ type CooklangRenderable struct {
 	RenderFunc func() string `json:"-"` // Custom rendering function
 }
 
-// CooklangRecipe is a marker interface for recipe types.
-type CooklangRecipe interface {
-	isRecipe()
-}
-
 // Metadata stores arbitrary key-value pairs for recipe metadata not covered by structured fields.
 // This allows recipes to include custom fields beyond the standard ones.
 //
@@ -152,7 +147,8 @@ var cookingMassConversions = map[string]float64{
 	"g":  1.0,
 }
 
-// convertCookingUnit converts between common cooking units
+// convertCookingUnit converts between common cooking units using ml or grams as an intermediate.
+// Supports volume units (ml, cup, tbsp, etc.) and mass units (g, kg, oz, lb).
 func convertCookingUnit(value float64, fromUnit, toUnit string) (float64, error) {
 	// Try volume conversion first
 	if fromMl, okFrom := cookingUnitConversions[fromUnit]; okFrom {
@@ -175,14 +171,14 @@ func convertCookingUnit(value float64, fromUnit, toUnit string) (float64, error)
 	return 0, fmt.Errorf("cannot convert from %s to %s", fromUnit, toUnit)
 }
 
-// isCookingUnit checks if a unit is a common cooking unit we can convert
+// isCookingUnit checks if a unit is a recognized cooking unit that can be converted.
 func isCookingUnit(unit string) bool {
 	_, isVolume := cookingUnitConversions[unit]
 	_, isMass := cookingMassConversions[unit]
 	return isVolume || isMass
 }
 
-// getCookingUnitType returns "volume" or "mass" for cooking units
+// getCookingUnitType returns "volume" or "mass" for recognized cooking units, empty string otherwise.
 func getCookingUnitType(unit string) string {
 	if _, isVolume := cookingUnitConversions[unit]; isVolume {
 		return "volume"
@@ -211,6 +207,32 @@ type Step struct {
 	FirstComponent StepComponent `json:"first_component,omitempty"` // First component in this step
 	NextStep       *Step         `json:"next_step,omitempty"`       // Next step in the recipe
 	CooklangRenderable
+}
+
+// HasDisplayableContent returns true if the step contains any content that should be displayed
+// to users (ingredients, cookware, timers, non-whitespace text, sections, or notes).
+// Steps containing only comments or whitespace-only text return false.
+func (s *Step) HasDisplayableContent() bool {
+	if s == nil || s.FirstComponent == nil {
+		return false
+	}
+
+	current := s.FirstComponent
+	for current != nil {
+		switch comp := current.(type) {
+		case *Ingredient, *Cookware, *Timer, *Section, *Note:
+			return true
+		case *Instruction:
+			// Check if text has any non-whitespace content
+			if strings.TrimSpace(comp.Text) != "" {
+				return true
+			}
+		case *Comment:
+			// Comments alone don't make a step displayable
+		}
+		current = current.GetNext()
+	}
+	return false
 }
 
 func (Instruction) isStepComponent() {}
@@ -566,7 +588,7 @@ func findRecipeImages(cookFilePath string) []string {
 	return images
 }
 
-// fileExists checks if a file exists and is not a directory
+// fileExists checks if a file exists and is not a directory.
 func fileExists(path string) bool {
 	info, err := os.Stat(path)
 	if err != nil {
@@ -575,7 +597,7 @@ func fileExists(path string) bool {
 	return !info.IsDir()
 }
 
-// mergeUniqueStrings merges two string slices, removing duplicates
+// mergeUniqueStrings merges two string slices, removing duplicates and empty strings.
 func mergeUniqueStrings(slice1, slice2 []string) []string {
 	seen := make(map[string]bool)
 	result := make([]string, 0, len(slice1)+len(slice2))
@@ -704,6 +726,10 @@ func ToCooklangRecipe(pRecipe *parser.Recipe) *Recipe {
 			recipe.Servings = float32(servings)
 		}
 	}
+	// Default to 1 serving if not specified or invalid
+	if recipe.Servings <= 0 {
+		recipe.Servings = 1
+	}
 	if dateStr, ok := pRecipe.Metadata["date"]; ok {
 		if date, err := time.Parse("2006-01-02", dateStr); err == nil {
 			recipe.Date = date
@@ -808,12 +834,15 @@ func ToCooklangRecipe(pRecipe *parser.Recipe) *Recipe {
 			}
 		}
 
-		if recipe.FirstStep == nil {
-			recipe.FirstStep = newStep
-		} else {
-			prevStep.NextStep = newStep
+		// Only add steps that have displayable content (skip comment-only or empty steps)
+		if newStep.HasDisplayableContent() {
+			if recipe.FirstStep == nil {
+				recipe.FirstStep = newStep
+			} else {
+				prevStep.NextStep = newStep
+			}
+			prevStep = newStep
 		}
-		prevStep = newStep
 	}
 
 	return recipe
@@ -1027,65 +1056,86 @@ func (i *Ingredient) GetUnitType() string {
 	}
 }
 
-// SetNext and GetNext methods for Ingredient
+// SetNext sets the next component in the step's linked list.
+// This implements the StepComponent interface for recipe step traversal.
 func (i *Ingredient) SetNext(next StepComponent) {
 	i.NextComponent = next
 }
 
+// GetNext returns the next component in the step's linked list.
+// This implements the StepComponent interface for recipe step traversal.
 func (i *Ingredient) GetNext() StepComponent {
 	return i.NextComponent
 }
 
-// SetNext and GetNext methods for Instruction
+// SetNext sets the next component in the step's linked list.
+// This implements the StepComponent interface for recipe step traversal.
 func (inst *Instruction) SetNext(next StepComponent) {
 	inst.NextComponent = next
 }
 
+// GetNext returns the next component in the step's linked list.
+// This implements the StepComponent interface for recipe step traversal.
 func (inst *Instruction) GetNext() StepComponent {
 	return inst.NextComponent
 }
 
-// SetNext and GetNext methods for Timer
+// SetNext sets the next component in the step's linked list.
+// This implements the StepComponent interface for recipe step traversal.
 func (t *Timer) SetNext(next StepComponent) {
 	t.NextComponent = next
 }
 
+// GetNext returns the next component in the step's linked list.
+// This implements the StepComponent interface for recipe step traversal.
 func (t *Timer) GetNext() StepComponent {
 	return t.NextComponent
 }
 
-// SetNext and GetNext methods for Cookware
+// SetNext sets the next component in the step's linked list.
+// This implements the StepComponent interface for recipe step traversal.
 func (c *Cookware) SetNext(next StepComponent) {
 	c.NextComponent = next
 }
 
+// GetNext returns the next component in the step's linked list.
+// This implements the StepComponent interface for recipe step traversal.
 func (c *Cookware) GetNext() StepComponent {
 	return c.NextComponent
 }
 
-// SetNext and GetNext methods for Section
+// SetNext sets the next component in the step's linked list.
+// This implements the StepComponent interface for recipe step traversal.
 func (s *Section) SetNext(next StepComponent) {
 	s.NextComponent = next
 }
 
+// GetNext returns the next component in the step's linked list.
+// This implements the StepComponent interface for recipe step traversal.
 func (s *Section) GetNext() StepComponent {
 	return s.NextComponent
 }
 
-// SetNext and GetNext methods for Comment
+// SetNext sets the next component in the step's linked list.
+// This implements the StepComponent interface for recipe step traversal.
 func (cm *Comment) SetNext(next StepComponent) {
 	cm.NextComponent = next
 }
 
+// GetNext returns the next component in the step's linked list.
+// This implements the StepComponent interface for recipe step traversal.
 func (cm *Comment) GetNext() StepComponent {
 	return cm.NextComponent
 }
 
-// SetNext and GetNext methods for Note
+// SetNext sets the next component in the step's linked list.
+// This implements the StepComponent interface for recipe step traversal.
 func (n *Note) SetNext(next StepComponent) {
 	n.NextComponent = next
 }
 
+// GetNext returns the next component in the step's linked list.
+// This implements the StepComponent interface for recipe step traversal.
 func (n *Note) GetNext() StepComponent {
 	return n.NextComponent
 }
@@ -1126,7 +1176,23 @@ func (il *IngredientList) Add(ingredient *Ingredient) {
 	il.Ingredients = append(il.Ingredients, ingredient)
 }
 
-// GetIngredientsByName returns all ingredients with the given name
+// GetIngredientsByName returns all ingredients with the given name.
+// This is useful for finding duplicate ingredients before consolidation
+// or for extracting specific ingredients from a list.
+//
+// Parameters:
+//   - name: The ingredient name to search for (case-sensitive)
+//
+// Returns:
+//   - []*Ingredient: Slice of matching ingredients (empty if none found)
+//
+// Example:
+//
+//	list := recipe.GetIngredients()
+//	flourEntries := list.GetIngredientsByName("flour")
+//	for _, f := range flourEntries {
+//	    fmt.Printf("Found %v %s flour\n", f.Quantity, f.Unit)
+//	}
 func (il *IngredientList) GetIngredientsByName(name string) []*Ingredient {
 	var result []*Ingredient
 	for _, ingredient := range il.Ingredients {
@@ -1172,8 +1238,17 @@ func (il *IngredientList) ConsolidateByName(targetUnit string) (*IngredientList,
 	// Process each group
 	for name, ingredients := range ingredientMap {
 		if len(ingredients) == 1 {
-			// Single ingredient, just add it
-			consolidated.Add(ingredients[0])
+			// Single ingredient - convert to target unit if specified
+			ing := ingredients[0]
+			if targetUnit != "" && ing.Unit != "" && ing.Unit != targetUnit && ing.CanConvertTo(targetUnit) {
+				converted, err := ing.ConvertTo(targetUnit)
+				if err == nil {
+					consolidated.Add(converted)
+					continue
+				}
+			}
+			// No conversion needed or possible, add as-is
+			consolidated.Add(ing)
 			continue
 		}
 
@@ -1255,7 +1330,28 @@ func (il *IngredientList) ConsolidateByName(targetUnit string) (*IngredientList,
 	return consolidated, nil
 }
 
-// ToMap returns a map of ingredient names to their quantities (useful for shopping lists)
+// ToMap returns a map of ingredient names to their formatted quantities.
+// This is useful for displaying shopping lists in a simple key-value format.
+//
+// The quantity formatting follows these rules:
+//   - Whole numbers are shown without decimals (e.g., "100 g")
+//   - Fractional quantities show one decimal place (e.g., "1.5 cup")
+//   - "Some" quantities (-1) are displayed as "some" or "some [unit]"
+//   - Unitless ingredients show just the quantity or "some"
+//
+// Returns:
+//   - map[string]string: Map of ingredient names to formatted quantity strings
+//
+// Example:
+//
+//	list := recipe.GetIngredients()
+//	for name, qty := range list.ToMap() {
+//	    fmt.Printf("- %s: %s\n", name, qty)
+//	}
+//	// Output:
+//	// - flour: 500 g
+//	// - eggs: 3
+//	// - salt: some
 func (il *IngredientList) ToMap() map[string]string {
 	result := make(map[string]string)
 	for _, ingredient := range il.Ingredients {
@@ -1353,7 +1449,20 @@ func (r *Recipe) GetCookware() []*Cookware {
 	return cookware
 }
 
-// ConvertToSystem converts all convertible ingredients in the list to the target unit system
+// ConvertToSystem converts all ingredients in the list to the target unit system.
+// Each ingredient is converted individually using Ingredient.ConvertToSystem.
+// Ingredients that cannot be converted (no TypedUnit or "some" quantity) are copied as-is.
+//
+// Parameters:
+//   - system: The target unit system (UnitSystemMetric, UnitSystemUS, UnitSystemImperial)
+//
+// Returns:
+//   - *IngredientList: A new list with converted ingredients
+//
+// Example:
+//
+//	metricList := recipe.GetIngredients()
+//	usList := metricList.ConvertToSystem(cooklang.UnitSystemUS)
 func (il *IngredientList) ConvertToSystem(system UnitSystem) *IngredientList {
 	result := NewIngredientList()
 
@@ -1365,7 +1474,23 @@ func (il *IngredientList) ConvertToSystem(system UnitSystem) *IngredientList {
 	return result
 }
 
-// ConvertToSystem converts an ingredient to the target unit system if possible
+// ConvertToSystem converts an ingredient to the target unit system.
+// The conversion selects an appropriate unit based on the ingredient's unit type
+// (mass or volume) and converts the quantity accordingly.
+//
+// If the ingredient has no TypedUnit or has "some" quantity (-1), a copy is returned unchanged.
+//
+// Parameters:
+//   - system: The target unit system (UnitSystemMetric, UnitSystemUS, UnitSystemImperial)
+//
+// Returns:
+//   - *Ingredient: A new ingredient with converted quantity and unit
+//
+// Example:
+//
+//	flour := cooklang.NewIngredient("flour", 500, "g")
+//	usFlour := flour.ConvertToSystem(cooklang.UnitSystemUS)
+//	fmt.Printf("%v %s\n", usFlour.Quantity, usFlour.Unit) // "17.6 oz"
 func (i *Ingredient) ConvertToSystem(system UnitSystem) *Ingredient {
 	if i.TypedUnit == nil || i.Quantity == -1 {
 		// Return a copy of the ingredient if it can't be converted
@@ -1446,15 +1571,39 @@ func (i *Ingredient) getBestUnit(quantity float32, defaultUnit string, alternati
 	return defaultUnit
 }
 
-// ConvertToSystemWithConsolidation converts ingredients to a target system and consolidates by name
+// ConvertToSystemWithConsolidation converts ingredients to a target system and consolidates by name.
+// This combines ConvertToSystem and ConsolidateByName in a single operation.
+//
+// Parameters:
+//   - system: The target unit system (UnitSystemMetric, UnitSystemUS, UnitSystemImperial)
+//
+// Returns:
+//   - *IngredientList: A new list with converted and consolidated ingredients
+//   - error: Any error encountered during consolidation
+//
+// Example:
+//
+//	ingredients := recipe.GetIngredients()
+//	usList, _ := ingredients.ConvertToSystemWithConsolidation(cooklang.UnitSystemUS)
 func (il *IngredientList) ConvertToSystemWithConsolidation(system UnitSystem) (*IngredientList, error) {
 	converted := il.ConvertToSystem(system)
 	return converted.ConsolidateByName("")
 }
 
-// ConvertToSystemBartender converts all ingredients using bartender-friendly conversions
-// This uses practical bartender measurements (30ml/oz instead of 29.5735) and
-// smart unit selection (dashes for tiny amounts, friendly fractions)
+// ConvertToSystemBartender converts all ingredients using bartender-friendly conversions.
+// This uses practical bartender measurements (30ml = 1oz instead of 29.5735ml) and
+// smart unit selection (dashes for tiny amounts, friendly fractions).
+//
+// Parameters:
+//   - system: The target unit system (UnitSystemMetric, UnitSystemUS)
+//
+// Returns:
+//   - *IngredientList: A new list with bartender-friendly converted ingredients
+//
+// Example:
+//
+//	ingredients := cocktail.GetIngredients()
+//	usBar := ingredients.ConvertToSystemBartender(cooklang.UnitSystemUS)
 func (il *IngredientList) ConvertToSystemBartender(system UnitSystem) *IngredientList {
 	result := NewIngredientList()
 
@@ -1466,10 +1615,27 @@ func (il *IngredientList) ConvertToSystemBartender(system UnitSystem) *Ingredien
 	return result
 }
 
-// ConvertToSystemBartender converts an ingredient using bartender-friendly conversions
-// It uses practical measurements like dashes for very small amounts, and skips
-// conversion if the ingredient is already in the target system (unless it needs
-// smart unit selection like converting tiny oz to dashes)
+// ConvertToSystemBartender converts an ingredient using bartender-friendly conversions.
+// It uses practical measurements like dashes for very small amounts (<3ml), and skips
+// conversion for cocktail-specific units (dash, splash, etc.).
+//
+// Features:
+//   - Practical oz/ml conversion (30ml = 1oz)
+//   - Smart unit selection based on quantity
+//   - Dashes for tiny amounts (≤3ml)
+//   - Preserves cocktail-specific units
+//
+// Parameters:
+//   - system: The target unit system (UnitSystemMetric, UnitSystemUS)
+//
+// Returns:
+//   - *Ingredient: A new ingredient with bartender-friendly quantity and unit
+//
+// Example:
+//
+//	vodka := cooklang.NewIngredient("vodka", 45, "ml")
+//	usVodka := vodka.ConvertToSystemBartender(cooklang.UnitSystemUS)
+//	fmt.Printf("%v %s\n", usVodka.Quantity, usVodka.Unit) // "1.5 oz"
 func (i *Ingredient) ConvertToSystemBartender(system UnitSystem) *Ingredient {
 	// Skip conversion for ingredients without quantities
 	if i.Quantity == -1 {
@@ -1554,8 +1720,17 @@ func (i *Ingredient) ConvertToSystemBartender(system UnitSystem) *Ingredient {
 	return i.ConvertToSystem(system)
 }
 
-// FormatQuantityBartender formats an ingredient's quantity using bartender-friendly formatting
-// (fractions instead of decimals, pluralization)
+// FormatQuantityBartender formats an ingredient's quantity using bartender-friendly formatting.
+// This uses fractions instead of decimals (e.g., "1/2" instead of "0.5") and
+// handles pluralization appropriately.
+//
+// Returns:
+//   - string: Formatted quantity string (e.g., "1 1/2 oz", "some", "")
+//
+// Example:
+//
+//	vodka := cooklang.NewIngredient("vodka", 1.5, "oz")
+//	fmt.Println(vodka.FormatQuantityBartender()) // "1 1/2 oz"
 func (i *Ingredient) FormatQuantityBartender() string {
 	if i.Quantity == -1 {
 		return "some"
@@ -1571,7 +1746,23 @@ func (i *Ingredient) FormatQuantityBartender() string {
 	return FormatBartenderValue(result)
 }
 
-// GetShoppingListInSystem returns a shopping list map with ingredients converted to the target system
+// GetShoppingListInSystem returns a shopping list with ingredients converted to the target unit system.
+// The ingredients are first converted, then consolidated by name to combine duplicate entries.
+//
+// Parameters:
+//   - system: The target unit system (UnitSystemMetric, UnitSystemUS, UnitSystemImperial)
+//
+// Returns:
+//   - map[string]string: A map of ingredient names to formatted quantities
+//   - error: Any error encountered during conversion
+//
+// Example:
+//
+//	recipe, _ := cooklang.ParseFile("pasta.cook")
+//	usList, _ := recipe.GetShoppingListInSystem(cooklang.UnitSystemUS)
+//	for name, qty := range usList {
+//	    fmt.Printf("%s: %s\n", name, qty)
+//	}
 func (r *Recipe) GetShoppingListInSystem(system UnitSystem) (map[string]string, error) {
 	ingredients := r.GetIngredients()
 	converted := ingredients.ConvertToSystem(system)
@@ -1627,22 +1818,60 @@ func (r *Recipe) GetImperialShoppingList() (map[string]string, error) {
 	return r.GetShoppingListInSystem(UnitSystemImperial)
 }
 
-// GetCollectedIngredients returns a consolidated list of all ingredients from the recipe
-// This combines GetIngredients() and ConsolidateByName() into a single convenient function
+// GetCollectedIngredients returns a consolidated list of all ingredients from the recipe.
+// This combines GetIngredients() and ConsolidateByName() into a single convenient function.
+// Duplicate ingredients with compatible units are combined into single entries.
+//
+// Returns:
+//   - *IngredientList: A consolidated list of ingredients
+//   - error: Any error encountered during consolidation
+//
+// Example:
+//
+//	recipe, _ := cooklang.ParseFile("cake.cook")
+//	ingredients, _ := recipe.GetCollectedIngredients()
+//	for _, ing := range ingredients.Ingredients {
+//	    fmt.Printf("%s: %v %s\n", ing.Name, ing.Quantity, ing.Unit)
+//	}
 func (r *Recipe) GetCollectedIngredients() (*IngredientList, error) {
 	ingredients := r.GetIngredients()
 	return ingredients.ConsolidateByName("")
 }
 
 // GetCollectedIngredientsWithUnit returns a consolidated list of all ingredients from the recipe,
-// converting them to the specified target unit when possible
+// converting them to the specified target unit when possible.
+//
+// Parameters:
+//   - targetUnit: The unit to convert compatible ingredients to (e.g., "g", "ml", "oz")
+//
+// Returns:
+//   - *IngredientList: A consolidated list with converted ingredients
+//   - error: Any error encountered during consolidation
+//
+// Example:
+//
+//	recipe, _ := cooklang.ParseFile("cake.cook")
+//	// Get all ingredients in grams
+//	ingredients, _ := recipe.GetCollectedIngredientsWithUnit("g")
 func (r *Recipe) GetCollectedIngredientsWithUnit(targetUnit string) (*IngredientList, error) {
 	ingredients := r.GetIngredients()
 	return ingredients.ConsolidateByName(targetUnit)
 }
 
-// GetCollectedIngredientsMap returns a map of ingredient names to their consolidated quantities
-// This is useful for creating shopping lists or ingredient summaries
+// GetCollectedIngredientsMap returns a map of ingredient names to their consolidated quantities.
+// This is useful for creating simple shopping lists or ingredient summaries.
+//
+// Returns:
+//   - map[string]string: A map of ingredient names to formatted quantity strings
+//   - error: Any error encountered during consolidation
+//
+// Example:
+//
+//	recipe, _ := cooklang.ParseFile("pasta.cook")
+//	ingredientMap, _ := recipe.GetCollectedIngredientsMap()
+//	for name, qty := range ingredientMap {
+//	    fmt.Printf("- %s: %s\n", name, qty)
+//	}
 func (r *Recipe) GetCollectedIngredientsMap() (map[string]string, error) {
 	collectedIngredients, err := r.GetCollectedIngredients()
 	if err != nil {
@@ -1712,7 +1941,23 @@ func CreateShoppingList(recipes ...*Recipe) (*ShoppingList, error) {
 	}, nil
 }
 
-// CreateShoppingListWithUnit creates a shopping list with ingredients converted to the target unit
+// CreateShoppingListWithUnit creates a shopping list with ingredients converted to the target unit.
+// All compatible ingredients are converted to the specified unit before consolidation.
+//
+// Parameters:
+//   - targetUnit: The unit to convert ingredients to (e.g., "g", "ml", "oz", "kg")
+//   - recipes: Variable number of Recipe pointers to include
+//
+// Returns:
+//   - *ShoppingList: A shopping list with converted and consolidated ingredients
+//   - error: Any error encountered during consolidation
+//
+// Example:
+//
+//	recipe1, _ := cooklang.ParseFile("pasta.cook")
+//	recipe2, _ := cooklang.ParseFile("salad.cook")
+//	// Get shopping list with all weights in grams
+//	list, _ := cooklang.CreateShoppingListWithUnit("g", recipe1, recipe2)
 func CreateShoppingListWithUnit(targetUnit string, recipes ...*Recipe) (*ShoppingList, error) {
 	if len(recipes) == 0 {
 		return &ShoppingList{
@@ -1746,7 +1991,139 @@ func CreateShoppingListWithUnit(targetUnit string, recipes ...*Recipe) (*Shoppin
 	}, nil
 }
 
-// ToMap returns the shopping list as a map of ingredient names to quantities
+// CreateShoppingListForServings creates a shopping list by scaling each recipe
+// to the target number of servings before combining ingredients.
+//
+// This is ideal for meal planning where recipes have different serving sizes
+// and you want to normalize them all to your household size.
+//
+// Each recipe is scaled from its original servings to the target servings,
+// then all ingredients are combined and consolidated.
+//
+// Parameters:
+//   - targetServings: The desired number of servings for each recipe
+//   - recipes: Variable number of recipe pointers to combine
+//
+// Returns:
+//   - *ShoppingList: Consolidated shopping list with all ingredients scaled
+//   - error: Error if consolidation fails
+//
+// Example:
+//
+//	monday, _ := cooklang.ParseFile("monday.cook")     // servings: 2
+//	tuesday, _ := cooklang.ParseFile("tuesday.cook")  // servings: 8
+//	wednesday, _ := cooklang.ParseFile("wednesday.cook") // servings: 1 (default)
+//
+//	// Create shopping list for household of 5
+//	list, _ := cooklang.CreateShoppingListForServings(5, monday, tuesday, wednesday)
+//	// monday scaled 2.5x, tuesday scaled 0.625x, wednesday scaled 5x
+func CreateShoppingListForServings(targetServings float64, recipes ...*Recipe) (*ShoppingList, error) {
+	if len(recipes) == 0 {
+		return &ShoppingList{
+			Ingredients: &IngredientList{Ingredients: []*Ingredient{}},
+			Recipes:     []string{},
+		}, nil
+	}
+
+	// Scale each recipe to target servings, then collect ingredients
+	allIngredients := []*Ingredient{}
+	recipeNames := []string{}
+
+	for _, recipe := range recipes {
+		// Scale this recipe to target servings
+		scaledRecipe := recipe.ScaleToServings(targetServings)
+
+		// Collect ingredients from the scaled recipe
+		ingredients := scaledRecipe.GetIngredients()
+		allIngredients = append(allIngredients, ingredients.Ingredients...)
+
+		if recipe.Title != "" {
+			recipeNames = append(recipeNames, recipe.Title)
+		}
+	}
+
+	// Create a combined ingredient list and consolidate
+	combinedList := &IngredientList{Ingredients: allIngredients}
+	consolidated, err := combinedList.ConsolidateByName("")
+	if err != nil {
+		return nil, err
+	}
+
+	return &ShoppingList{
+		Ingredients: consolidated,
+		Recipes:     recipeNames,
+	}, nil
+}
+
+// CreateShoppingListForServingsWithUnit creates a shopping list by scaling each recipe
+// to the target servings and converting ingredients to the target unit.
+//
+// This combines the functionality of CreateShoppingListForServings and
+// CreateShoppingListWithUnit for meal planning with unit standardization.
+//
+// Parameters:
+//   - targetServings: The desired number of servings for each recipe
+//   - targetUnit: The unit to convert compatible ingredients to (e.g., "g", "ml", "kg")
+//   - recipes: Variable number of recipe pointers to combine
+//
+// Returns:
+//   - *ShoppingList: Consolidated shopping list with scaled and converted ingredients
+//   - error: Error if conversion or consolidation fails
+//
+// Example:
+//
+//	// Create shopping list for 4 servings with metric units
+//	list, _ := cooklang.CreateShoppingListForServingsWithUnit(4, "g", recipes...)
+func CreateShoppingListForServingsWithUnit(targetServings float64, targetUnit string, recipes ...*Recipe) (*ShoppingList, error) {
+	if len(recipes) == 0 {
+		return &ShoppingList{
+			Ingredients: &IngredientList{Ingredients: []*Ingredient{}},
+			Recipes:     []string{},
+		}, nil
+	}
+
+	// Scale each recipe to target servings, then collect ingredients
+	allIngredients := []*Ingredient{}
+	recipeNames := []string{}
+
+	for _, recipe := range recipes {
+		// Scale this recipe to target servings
+		scaledRecipe := recipe.ScaleToServings(targetServings)
+
+		// Collect ingredients from the scaled recipe
+		ingredients := scaledRecipe.GetIngredients()
+		allIngredients = append(allIngredients, ingredients.Ingredients...)
+
+		if recipe.Title != "" {
+			recipeNames = append(recipeNames, recipe.Title)
+		}
+	}
+
+	// Create a combined ingredient list and consolidate with unit conversion
+	combinedList := &IngredientList{Ingredients: allIngredients}
+	consolidated, err := combinedList.ConsolidateByName(targetUnit)
+	if err != nil {
+		return nil, err
+	}
+
+	return &ShoppingList{
+		Ingredients: consolidated,
+		Recipes:     recipeNames,
+	}, nil
+}
+
+// ToMap returns the shopping list as a map of ingredient names to formatted quantities.
+// This is a convenience method that delegates to IngredientList.ToMap().
+//
+// Returns:
+//   - map[string]string: A map of ingredient names to quantity strings
+//
+// Example:
+//
+//	list, _ := cooklang.CreateShoppingList(recipe1, recipe2)
+//	for name, qty := range list.ToMap() {
+//	    fmt.Printf("- %s: %s\n", name, qty)
+//	}
 func (sl *ShoppingList) ToMap() map[string]string {
 	if sl.Ingredients == nil {
 		return map[string]string{}
@@ -1793,7 +2170,15 @@ func (sl *ShoppingList) Scale(multiplier float64) *ShoppingList {
 	}
 }
 
-// Count returns the number of unique ingredients in the shopping list
+// Count returns the number of unique ingredients in the shopping list.
+//
+// Returns:
+//   - int: The number of ingredients (0 if the list is empty or nil)
+//
+// Example:
+//
+//	list, _ := cooklang.CreateShoppingList(recipe1, recipe2)
+//	fmt.Printf("You need %d ingredients\n", list.Count())
 func (sl *ShoppingList) Count() int {
 	if sl.Ingredients == nil {
 		return 0
@@ -1858,15 +2243,16 @@ func (r *Recipe) Scale(factor float64) *Recipe {
 
 			switch comp := component.(type) {
 			case *Ingredient:
-				// Scale the ingredient
+				// Scale the ingredient (unless it's fixed or "some")
 				newQty := comp.Quantity
-				if newQty > 0 { // Don't scale "some" (-1) or zero quantities
+				if newQty > 0 && !comp.Fixed { // Don't scale "some" (-1), zero, or fixed quantities
 					newQty = comp.Quantity * float32(factor)
 				}
 				newComponent = &Ingredient{
 					Name:           comp.Name,
 					Quantity:       newQty,
 					Unit:           comp.Unit,
+					Fixed:          comp.Fixed,
 					TypedUnit:      comp.TypedUnit,
 					Subinstruction: comp.Subinstruction,
 					Annotation:     comp.Annotation,
@@ -1895,15 +2281,42 @@ func (r *Recipe) Scale(factor float64) *Recipe {
 				newComponent = &Instruction{
 					Text: comp.Text,
 				}
+
+			case *Section:
+				// Copy section unchanged
+				newComponent = &Section{
+					Name: comp.Name,
+				}
+
+			case *Comment:
+				// Copy comment unchanged
+				newComponent = &Comment{
+					Text:    comp.Text,
+					IsBlock: comp.IsBlock,
+				}
+
+			case *Note:
+				// Copy note unchanged
+				newComponent = &Note{
+					Text: comp.Text,
+				}
 			}
 
-			// Link components
+			// Link components (skip nil - unhandled types)
+			if newComponent == nil {
+				continue
+			}
 			if lastComponent == nil {
 				newStep.FirstComponent = newComponent
 			} else {
 				lastComponent.SetNext(newComponent)
 			}
 			lastComponent = newComponent
+		}
+
+		// Only add steps that have displayable content
+		if !newStep.HasDisplayableContent() {
+			continue
 		}
 
 		// Link steps
