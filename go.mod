@@ -1,6 +1,6 @@
 module github.com/hilli/cooklang
 
-go 1.25.5
+go 1.24
 
 require (
 	github.com/bcicen/go-units v1.0.5
