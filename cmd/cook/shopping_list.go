@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"sort"
 
 	"github.com/hilli/cooklang"
 	"github.com/spf13/cobra"
@@ -182,8 +183,16 @@ func displayShoppingList(list *cooklang.ShoppingList, recipes []*cooklang.Recipe
 
 func displaySimpleShoppingList(list *cooklang.ShoppingList) {
 	shoppingMap := list.ToMap()
-	for name, quantity := range shoppingMap {
-		fmt.Printf("%s: %s\n", name, quantity)
+
+	// Sort keys alphabetically
+	keys := make([]string, 0, len(shoppingMap))
+	for name := range shoppingMap {
+		keys = append(keys, name)
+	}
+	sort.Strings(keys)
+
+	for _, name := range keys {
+		fmt.Printf("%s: %s\n", name, shoppingMap[name])
 	}
 }
 
@@ -237,10 +246,20 @@ func contains(s string, substrs []string) bool {
 	return false
 }
 
+// sortIngredients sorts a slice of ingredients alphabetically by name
+func sortIngredients(ingredients []*cooklang.Ingredient) {
+	sort.Slice(ingredients, func(i, j int) bool {
+		return ingredients[i].Name < ingredients[j].Name
+	})
+}
+
 func displayCategory(title string, ingredients []*cooklang.Ingredient) {
 	if len(ingredients) == 0 {
 		return
 	}
+
+	// Sort alphabetically
+	sortIngredients(ingredients)
 
 	fmt.Printf("\n%s:\n", title)
 	for _, ing := range ingredients {
