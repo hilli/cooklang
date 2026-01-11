@@ -2281,15 +2281,42 @@ func (r *Recipe) Scale(factor float64) *Recipe {
 				newComponent = &Instruction{
 					Text: comp.Text,
 				}
+
+			case *Section:
+				// Copy section unchanged
+				newComponent = &Section{
+					Name: comp.Name,
+				}
+
+			case *Comment:
+				// Copy comment unchanged
+				newComponent = &Comment{
+					Text:    comp.Text,
+					IsBlock: comp.IsBlock,
+				}
+
+			case *Note:
+				// Copy note unchanged
+				newComponent = &Note{
+					Text: comp.Text,
+				}
 			}
 
-			// Link components
+			// Link components (skip nil - unhandled types)
+			if newComponent == nil {
+				continue
+			}
 			if lastComponent == nil {
 				newStep.FirstComponent = newComponent
 			} else {
 				lastComponent.SetNext(newComponent)
 			}
 			lastComponent = newComponent
+		}
+
+		// Only add steps that have displayable content
+		if !newStep.HasDisplayableContent() {
+			continue
 		}
 
 		// Link steps
