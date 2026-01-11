@@ -209,6 +209,32 @@ type Step struct {
 	CooklangRenderable
 }
 
+// HasDisplayableContent returns true if the step contains any content that should be displayed
+// to users (ingredients, cookware, timers, non-whitespace text, sections, or notes).
+// Steps containing only comments or whitespace-only text return false.
+func (s *Step) HasDisplayableContent() bool {
+	if s == nil || s.FirstComponent == nil {
+		return false
+	}
+
+	current := s.FirstComponent
+	for current != nil {
+		switch comp := current.(type) {
+		case *Ingredient, *Cookware, *Timer, *Section, *Note:
+			return true
+		case *Instruction:
+			// Check if text has any non-whitespace content
+			if strings.TrimSpace(comp.Text) != "" {
+				return true
+			}
+		case *Comment:
+			// Comments alone don't make a step displayable
+		}
+		current = current.GetNext()
+	}
+	return false
+}
+
 func (Instruction) isStepComponent() {}
 func (Timer) isStepComponent()       {}
 func (Cookware) isStepComponent()    {}
@@ -808,12 +834,15 @@ func ToCooklangRecipe(pRecipe *parser.Recipe) *Recipe {
 			}
 		}
 
-		if recipe.FirstStep == nil {
-			recipe.FirstStep = newStep
-		} else {
-			prevStep.NextStep = newStep
+		// Only add steps that have displayable content (skip comment-only or empty steps)
+		if newStep.HasDisplayableContent() {
+			if recipe.FirstStep == nil {
+				recipe.FirstStep = newStep
+			} else {
+				prevStep.NextStep = newStep
+			}
+			prevStep = newStep
 		}
-		prevStep = newStep
 	}
 
 	return recipe
