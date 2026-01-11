@@ -45,8 +45,9 @@ Examples:
 
   # Simple output format
   cook list meal-prep.cook --simple`,
-	Args: cobra.MinimumNArgs(1),
-	RunE: runShoppingList,
+	Args:              cobra.MinimumNArgs(1),
+	RunE:              runShoppingList,
+	ValidArgsFunction: completeCookFiles,
 }
 
 func init() {
@@ -56,6 +57,10 @@ func init() {
 	shoppingListCmd.Flags().StringVarP(&shoppingListUnit, "unit", "u", "", "Convert to target unit (e.g., g, kg, ml)")
 	shoppingListCmd.Flags().BoolVar(&shoppingListSimple, "simple", false, "Simple format (ingredient: quantity)")
 	rootCmd.AddCommand(shoppingListCmd)
+
+	// Register flag completions
+	_ = shoppingListCmd.RegisterFlagCompletionFunc("servings", completeServingsFlag)
+	_ = shoppingListCmd.RegisterFlagCompletionFunc("unit", completeUnitFlag)
 }
 
 func runShoppingList(cmd *cobra.Command, args []string) error {

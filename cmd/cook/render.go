@@ -32,14 +32,18 @@ Examples:
   cook render recipe.cook --format=print --output=recipe.html
   cook render recipe.cook --format=markdown --output=recipe.md
   cook render recipe.cook -f html -o recipe.html`,
-	Args: cobra.ExactArgs(1),
-	RunE: runRender,
+	Args:              cobra.ExactArgs(1),
+	RunE:              runRender,
+	ValidArgsFunction: completeCookFiles,
 }
 
 func init() {
 	renderCmd.Flags().StringVarP(&renderFormat, "format", "f", "markdown", "Output format (cooklang, markdown, html, print)")
 	renderCmd.Flags().StringVarP(&renderOutput, "output", "o", "", "Output file (default: stdout)")
 	rootCmd.AddCommand(renderCmd)
+
+	// Register flag completion
+	_ = renderCmd.RegisterFlagCompletionFunc("format", completeFormatFlag)
 }
 
 func runRender(cmd *cobra.Command, args []string) error {

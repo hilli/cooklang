@@ -28,8 +28,9 @@ Examples:
   cook parse recipe.cook
   cook parse recipe.cook --json
   cook parse recipe.cook --detailed`,
-	Args: cobra.ExactArgs(1),
-	RunE: runParse,
+	Args:              cobra.ExactArgs(1),
+	RunE:              runParse,
+	ValidArgsFunction: completeCookFiles,
 }
 
 func init() {
