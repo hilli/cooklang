@@ -74,6 +74,62 @@ if err != nil {
 }
 ```
 
+### CreateShoppingListForServings
+
+Creates a shopping list by scaling each recipe to the target number of servings before combining. This is ideal for meal planning where recipes have different serving sizes.
+
+```go
+func CreateShoppingListForServings(targetServings float64, recipes ...*Recipe) (*ShoppingList, error)
+```
+
+**Parameters:**
+
+- `targetServings float64`: The desired number of servings for each recipe
+- `recipes ...*Recipe`: Variable number of recipe pointers to combine
+
+**Returns:**
+
+- `*ShoppingList`: Consolidated shopping list with all ingredients scaled
+- `error`: Error if consolidation fails
+
+**Example:**
+
+```go
+// Recipes with different serving sizes
+monday, _ := cooklang.ParseFile("monday.cook")     // servings: 2
+tuesday, _ := cooklang.ParseFile("tuesday.cook")  // servings: 8
+
+// Normalize both to 4 servings before combining
+shoppingList, err := cooklang.CreateShoppingListForServings(4, monday, tuesday)
+// monday scaled 2x, tuesday scaled 0.5x
+```
+
+### CreateShoppingListForServingsWithUnit
+
+Combines servings normalization with unit conversion - scales each recipe to the target servings and converts ingredients to the target unit.
+
+```go
+func CreateShoppingListForServingsWithUnit(targetServings float64, targetUnit string, recipes ...*Recipe) (*ShoppingList, error)
+```
+
+**Parameters:**
+
+- `targetServings float64`: The desired number of servings for each recipe
+- `targetUnit string`: The unit to convert compatible ingredients to (e.g., "g", "ml", "kg")
+- `recipes ...*Recipe`: Variable number of recipe pointers to combine
+
+**Returns:**
+
+- `*ShoppingList`: Consolidated shopping list with scaled and converted ingredients
+- `error`: Error if conversion or consolidation fails
+
+**Example:**
+
+```go
+// Scale to 4 servings and convert masses to grams
+shoppingList, err := cooklang.CreateShoppingListForServingsWithUnit(4, "g", recipes...)
+```
+
 ## ShoppingList Type
 
 ```go
@@ -244,7 +300,43 @@ shoppingList.Scale(1.5)  // 1.5x quantities
 
 ## Use Cases
 
-### Meal Planning
+### Meal Planning with Servings Normalization
+
+When planning meals for a household, recipes often have different serving sizes. Use `CreateShoppingListForServings` to normalize each recipe to your household size before combining:
+
+```go
+// Recipes with different serving sizes
+monday, _ := cooklang.ParseFile("monday.cook")     // servings: 2
+tuesday, _ := cooklang.ParseFile("tuesday.cook")  // servings: 8  
+wednesday, _ := cooklang.ParseFile("wednesday.cook") // servings: 4
+
+// Normalize all to household of 5 people
+weeklyList, _ := cooklang.CreateShoppingListForServings(5, monday, tuesday, wednesday)
+// monday scaled 2.5x, tuesday scaled 0.625x, wednesday scaled 1.25x
+```
+
+This is much more practical than using `Scale()` which would require calculating individual factors for each recipe.
+
+#### With Unit Conversion
+
+Combine servings normalization with unit standardization:
+
+```go
+// Scale to 4 servings and convert to metric
+list, _ := cooklang.CreateShoppingListForServingsWithUnit(4, "g", recipes...)
+```
+
+#### CLI Usage
+
+```bash
+# Scale all recipes to 4 servings (household size)
+cook shopping-list monday.cook tuesday.cook --servings 4
+
+# With unit conversion
+cook shop recipes/*.cook --servings 4 --unit kg
+```
+
+### Basic Meal Planning
 
 Create a weekly shopping list by combining all your planned recipes:
 

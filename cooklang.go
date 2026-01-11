@@ -49,11 +49,6 @@ type CooklangRenderable struct {
 	RenderFunc func() string `json:"-"` // Custom rendering function
 }
 
-// CooklangRecipe is a marker interface for recipe types.
-type CooklangRecipe interface {
-	isRecipe()
-}
-
 // Metadata stores arbitrary key-value pairs for recipe metadata not covered by structured fields.
 // This allows recipes to include custom fields beyond the standard ones.
 //
@@ -704,6 +699,10 @@ func ToCooklangRecipe(pRecipe *parser.Recipe) *Recipe {
 			recipe.Servings = float32(servings)
 		}
 	}
+	// Default to 1 serving if not specified or invalid
+	if recipe.Servings <= 0 {
+		recipe.Servings = 1
+	}
 	if dateStr, ok := pRecipe.Metadata["date"]; ok {
 		if date, err := time.Parse("2006-01-02", dateStr); err == nil {
 			recipe.Date = date
@@ -1172,8 +1171,17 @@ func (il *IngredientList) ConsolidateByName(targetUnit string) (*IngredientList,
 	// Process each group
 	for name, ingredients := range ingredientMap {
 		if len(ingredients) == 1 {
-			// Single ingredient, just add it
-			consolidated.Add(ingredients[0])
+			// Single ingredient - convert to target unit if specified
+			ing := ingredients[0]
+			if targetUnit != "" && ing.Unit != "" && ing.Unit != targetUnit && ing.CanConvertTo(targetUnit) {
+				converted, err := ing.ConvertTo(targetUnit)
+				if err == nil {
+					consolidated.Add(converted)
+					continue
+				}
+			}
+			// No conversion needed or possible, add as-is
+			consolidated.Add(ing)
 			continue
 		}
 
@@ -1746,6 +1754,127 @@ func CreateShoppingListWithUnit(targetUnit string, recipes ...*Recipe) (*Shoppin
 	}, nil
 }
 
+// CreateShoppingListForServings creates a shopping list by scaling each recipe
+// to the target number of servings before combining ingredients.
+//
+// This is ideal for meal planning where recipes have different serving sizes
+// and you want to normalize them all to your household size.
+//
+// Each recipe is scaled from its original servings to the target servings,
+// then all ingredients are combined and consolidated.
+//
+// Parameters:
+//   - targetServings: The desired number of servings for each recipe
+//   - recipes: Variable number of recipe pointers to combine
+//
+// Returns:
+//   - *ShoppingList: Consolidated shopping list with all ingredients scaled
+//   - error: Error if consolidation fails
+//
+// Example:
+//
+//	monday, _ := cooklang.ParseFile("monday.cook")     // servings: 2
+//	tuesday, _ := cooklang.ParseFile("tuesday.cook")  // servings: 8
+//	wednesday, _ := cooklang.ParseFile("wednesday.cook") // servings: 1 (default)
+//
+//	// Create shopping list for household of 5
+//	list, _ := cooklang.CreateShoppingListForServings(5, monday, tuesday, wednesday)
+//	// monday scaled 2.5x, tuesday scaled 0.625x, wednesday scaled 5x
+func CreateShoppingListForServings(targetServings float64, recipes ...*Recipe) (*ShoppingList, error) {
+	if len(recipes) == 0 {
+		return &ShoppingList{
+			Ingredients: &IngredientList{Ingredients: []*Ingredient{}},
+			Recipes:     []string{},
+		}, nil
+	}
+
+	// Scale each recipe to target servings, then collect ingredients
+	allIngredients := []*Ingredient{}
+	recipeNames := []string{}
+
+	for _, recipe := range recipes {
+		// Scale this recipe to target servings
+		scaledRecipe := recipe.ScaleToServings(targetServings)
+
+		// Collect ingredients from the scaled recipe
+		ingredients := scaledRecipe.GetIngredients()
+		allIngredients = append(allIngredients, ingredients.Ingredients...)
+
+		if recipe.Title != "" {
+			recipeNames = append(recipeNames, recipe.Title)
+		}
+	}
+
+	// Create a combined ingredient list and consolidate
+	combinedList := &IngredientList{Ingredients: allIngredients}
+	consolidated, err := combinedList.ConsolidateByName("")
+	if err != nil {
+		return nil, err
+	}
+
+	return &ShoppingList{
+		Ingredients: consolidated,
+		Recipes:     recipeNames,
+	}, nil
+}
+
+// CreateShoppingListForServingsWithUnit creates a shopping list by scaling each recipe
+// to the target servings and converting ingredients to the target unit.
+//
+// This combines the functionality of CreateShoppingListForServings and
+// CreateShoppingListWithUnit for meal planning with unit standardization.
+//
+// Parameters:
+//   - targetServings: The desired number of servings for each recipe
+//   - targetUnit: The unit to convert compatible ingredients to (e.g., "g", "ml", "kg")
+//   - recipes: Variable number of recipe pointers to combine
+//
+// Returns:
+//   - *ShoppingList: Consolidated shopping list with scaled and converted ingredients
+//   - error: Error if conversion or consolidation fails
+//
+// Example:
+//
+//	// Create shopping list for 4 servings with metric units
+//	list, _ := cooklang.CreateShoppingListForServingsWithUnit(4, "g", recipes...)
+func CreateShoppingListForServingsWithUnit(targetServings float64, targetUnit string, recipes ...*Recipe) (*ShoppingList, error) {
+	if len(recipes) == 0 {
+		return &ShoppingList{
+			Ingredients: &IngredientList{Ingredients: []*Ingredient{}},
+			Recipes:     []string{},
+		}, nil
+	}
+
+	// Scale each recipe to target servings, then collect ingredients
+	allIngredients := []*Ingredient{}
+	recipeNames := []string{}
+
+	for _, recipe := range recipes {
+		// Scale this recipe to target servings
+		scaledRecipe := recipe.ScaleToServings(targetServings)
+
+		// Collect ingredients from the scaled recipe
+		ingredients := scaledRecipe.GetIngredients()
+		allIngredients = append(allIngredients, ingredients.Ingredients...)
+
+		if recipe.Title != "" {
+			recipeNames = append(recipeNames, recipe.Title)
+		}
+	}
+
+	// Create a combined ingredient list and consolidate with unit conversion
+	combinedList := &IngredientList{Ingredients: allIngredients}
+	consolidated, err := combinedList.ConsolidateByName(targetUnit)
+	if err != nil {
+		return nil, err
+	}
+
+	return &ShoppingList{
+		Ingredients: consolidated,
+		Recipes:     recipeNames,
+	}, nil
+}
+
 // ToMap returns the shopping list as a map of ingredient names to quantities
 func (sl *ShoppingList) ToMap() map[string]string {
 	if sl.Ingredients == nil {
@@ -1858,15 +1987,16 @@ func (r *Recipe) Scale(factor float64) *Recipe {
 
 			switch comp := component.(type) {
 			case *Ingredient:
-				// Scale the ingredient
+				// Scale the ingredient (unless it's fixed or "some")
 				newQty := comp.Quantity
-				if newQty > 0 { // Don't scale "some" (-1) or zero quantities
+				if newQty > 0 && !comp.Fixed { // Don't scale "some" (-1), zero, or fixed quantities
 					newQty = comp.Quantity * float32(factor)
 				}
 				newComponent = &Ingredient{
 					Name:           comp.Name,
 					Quantity:       newQty,
 					Unit:           comp.Unit,
+					Fixed:          comp.Fixed,
 					TypedUnit:      comp.TypedUnit,
 					Subinstruction: comp.Subinstruction,
 					Annotation:     comp.Annotation,
