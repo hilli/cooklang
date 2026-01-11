@@ -55,6 +55,14 @@ Toss everything together and serve.`
 }
 ```
 
+## Known Usages
+
+Projects using this library:
+
+- [cocktailti.me](https://cocktailti.me) - Cocktail recipe website
+
+*Using this library? Open a PR to add your project!*
+
 ## Cooklang specification
 
 See the [Cooklang specification](https://github.com/cooklang/spec/) for details.
