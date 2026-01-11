@@ -59,7 +59,7 @@ Toss everything together and serve.`
 
 Projects using this library:
 
-- [cocktailti.me](https://cocktailti.me) - Cocktail recipe website
+- [cocktailti.me](https://cocktailti.me) - Cocktail recipe *sharing* website
 
 *Using this library? Open a PR to add your project!*
 
