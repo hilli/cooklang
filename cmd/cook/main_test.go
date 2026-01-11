@@ -18,12 +18,15 @@ func TestMain(m *testing.M) {
 		panic("failed to build CLI for testing: " + err.Error())
 	}
 
-	code := m.Run()
+	// Use defer to ensure cleanup happens even if m.Run() panics
+	var exitCode int
+	defer func() {
+		// Cleanup - ignore error as file may not exist
+		_ = os.Remove("cook_test")
+		os.Exit(exitCode)
+	}()
 
-	// Cleanup - ignore error as file may not exist
-	_ = os.Remove("cook_test")
-
-	os.Exit(code)
+	exitCode = m.Run()
 }
 
 // runCLI executes the CLI with given arguments and returns stdout, stderr, and error
