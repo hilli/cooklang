@@ -190,7 +190,7 @@ func formatScaledRecipe(recipe *cooklang.Recipe, format string) (string, error) 
 		return renderer.RenderRecipe(recipe), nil
 	case "html":
 		renderer := renderers.NewHTMLRenderer()
-		return renderer.RenderRecipe(recipe), nil
+		return wrapHTMLDocument(renderer.RenderRecipe(recipe), recipe), nil
 	case "json":
 		return formatScaledJSON(recipe, 1.0)
 	default:
