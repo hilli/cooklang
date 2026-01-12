@@ -5,6 +5,17 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.1] - 2026-01-12
+
+### Fixed
+- HTML output from `render` and `scale` commands now includes complete document structure with `<meta charset="UTF-8">` for proper emoji rendering
+
+### Security
+- Updated `golang.org/x/crypto` from v0.37.0 to v0.46.0 (fixes CVE-2025-22869, CVE-2025-22872)
+- Updated `github.com/go-viper/mapstructure/v2` from v2.2.1 to v2.4.0 (fixes sensitive data logging issues)
+- Updated `golangci-lint` from v2.1.6 to v2.8.0
+- Updated `go-task` from v3.43.3 to v3.46.4
+
 ## [1.0.0] - 2026-01-11
 
 ### Added
@@ -85,6 +96,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 - Improved recipe data structure with linked-list step/component design
 
+[1.0.1]: https://github.com/hilli/cooklang/compare/v1.0.0...v1.0.1
 [1.0.0]: https://github.com/hilli/cooklang/compare/v0.4.0...v1.0.0
 [0.4.0]: https://github.com/hilli/cooklang/compare/v0.3.1...v0.4.0
 [0.3.1]: https://github.com/hilli/cooklang/compare/v0.3.0...v0.3.1
