@@ -5,6 +5,14 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.2] - 2026-01-25
+
+### Changed
+- Bartender mode metric rounding threshold increased from 10ml to 30ml
+  - Amounts < 30ml now round to nearest 2.5ml (was 5ml for amounts >= 10ml)
+  - Amounts >= 30ml continue to round to nearest 5ml
+  - This provides more precision for typical cocktail measurements (e.g., 22.5ml stays as 22.5ml instead of becoming 25ml)
+
 ## [1.0.1] - 2026-01-12
 
 ### Fixed

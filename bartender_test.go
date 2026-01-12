@@ -135,7 +135,9 @@ func TestSelectBestUnit(t *testing.T) {
 		{"100ml to metric = 10cl", 100.0, UnitSystemMetric, "cl", 10, 1},
 		{"1000ml to metric = 1l", 1000.0, UnitSystemMetric, "l", 1, 0.1},
 
-		// Metric rounding to nearest 5ml
+		// Metric rounding: nearest 2.5ml for <30ml, nearest 5ml for >=30ml
+		{"22ml to metric = 22.5ml", 22.0, UnitSystemMetric, "ml", 22.5, 0.1},
+		{"22.5ml to metric = 22.5ml", 22.5, UnitSystemMetric, "ml", 22.5, 0.1},
 		{"32ml to metric = 30ml", 32.0, UnitSystemMetric, "ml", 30, 1},
 		{"58ml to metric = 60ml", 58.0, UnitSystemMetric, "ml", 60, 1},
 
@@ -336,8 +338,8 @@ func TestRealWorldConversions(t *testing.T) {
 		// Common cocktail measurements
 		{"1.5 oz to metric = 45 ml", 1.5, "oz", UnitSystemMetric, "45 ml"},
 		{"2 oz to metric = 60 ml", 2.0, "oz", UnitSystemMetric, "60 ml"},
-		// 0.75 oz = 22.5 ml, rounds to 25ml (nearest 5)
-		{"0.75 oz to metric = 25 ml", 0.75, "oz", UnitSystemMetric, "25 ml"},
+		// 0.75 oz = 22.5 ml, stays at 22.5ml (nearest 2.5 for <30ml)
+		{"0.75 oz to metric = 22 1/2 ml", 0.75, "oz", UnitSystemMetric, "22 1/2 ml"},
 
 		// Metric to US
 		{"30 ml to US = 1 oz", 30.0, "ml", UnitSystemUS, "1 oz"},

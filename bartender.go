@@ -190,7 +190,7 @@ type SmartUnitResult struct {
 //   - Small amounts → barspoons or fractional oz
 //   - Standard amounts → oz with nice fractions
 //   - Large amounts → cups
-//   - Metric: rounds to nearest 5ml for readability
+//   - Metric: rounds to nearest 5ml for amounts ≥30ml, 2.5ml for smaller amounts
 //
 // Parameters:
 //   - mlValue: The volume in milliliters
@@ -227,10 +227,10 @@ func SelectBestUnit(mlValue float64, targetSystem UnitSystem) SmartUnitResult {
 }
 
 // selectBestMetricUnit picks the best metric unit for a given ml value.
-// Rounds to nearest 5ml for amounts ≥10ml, or nearest 2.5ml for smaller amounts.
+// Rounds to nearest 5ml for amounts ≥30ml, or nearest 2.5ml for smaller amounts.
 func selectBestMetricUnit(mlValue float64) SmartUnitResult {
-	// Round to nearest 5 for amounts >= 10ml
-	if mlValue >= 10 {
+	// Round to nearest 5 for amounts >= 30ml
+	if mlValue >= 30 {
 		rounded := math.Round(mlValue/5) * 5
 		if rounded >= 1000 {
 			return SmartUnitResult{Value: rounded / 1000, Unit: "l"}
