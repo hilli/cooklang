@@ -1,4 +1,22 @@
 // Package renderers provides different renderers for Cooklang recipes.
+//
+// This package includes renderers for various output formats:
+//   - CooklangRenderer: Renders recipes back to Cooklang format
+//   - MarkdownRenderer: Renders recipes as Markdown
+//   - HTMLRenderer: Renders recipes as HTML
+//   - PrintRenderer: Renders recipes as print-optimized HTML
+//   - JSONLDRenderer: Renders recipes as Schema.org JSON-LD for SEO
+//
+// Example usage:
+//
+//	recipe, _ := cooklang.ParseFile("recipe.cook")
+//
+//	// Use the default renderers
+//	html := renderers.Default.HTML.RenderRecipe(recipe)
+//	markdown := renderers.Default.Markdown.RenderRecipe(recipe)
+//
+//	// For JSON-LD (SEO structured data)
+//	jsonLD, _ := renderers.Default.JSONLD.RenderRecipeJSON(recipe, nil)
 package renderers
 
 import "github.com/hilli/cooklang"
@@ -11,11 +29,13 @@ var (
 		Markdown MarkdownRenderer
 		HTML     HTMLRenderer
 		Print    PrintRenderer
+		JSONLD   JSONLDRenderer
 	}{
 		Cooklang: CooklangRenderer{},
 		Markdown: MarkdownRenderer{},
 		HTML:     HTMLRenderer{},
 		Print:    PrintRenderer{},
+		JSONLD:   JSONLDRenderer{},
 	}
 )
 
