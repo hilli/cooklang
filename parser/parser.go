@@ -30,7 +30,8 @@ type Component struct {
 	Name     string `json:"name,omitempty" yaml:"name,omitempty"`
 	Quantity string `json:"quantity,omitempty" yaml:"quantity,omitempty"`
 	Unit     string `json:"unit,omitempty" yaml:"units,omitempty"`
-	Fixed    bool   `json:"fixed,omitempty" yaml:"fixed,omitempty"` // Fixed quantity doesn't scale with servings
+	Fixed    bool   `json:"fixed,omitempty" yaml:"fixed,omitempty"`       // Fixed quantity doesn't scale with servings
+	Optional bool   `json:"optional,omitempty" yaml:"optional,omitempty"` // Optional ingredient
 }
 
 // CooklangParser handles parsing of cooklang recipes
@@ -113,10 +114,13 @@ func (p *CooklangParser) parseTokens(l *lexer.Lexer) (*Recipe, error) {
 				}
 				// Process the next token immediately here
 				switch nextTok.Type {
-				case token.INGREDIENT:
+				case token.INGREDIENT, token.OPTIONAL_INGREDIENT:
 					ingredient, err := p.parseIngredient(l)
 					if err != nil {
 						return nil, fmt.Errorf("failed to parse ingredient: %w", err)
+					}
+					if nextTok.Type == token.OPTIONAL_INGREDIENT {
+						ingredient.Optional = true
 					}
 					currentStep.Components = append(currentStep.Components, ingredient)
 				case token.COOKWARE:
@@ -240,11 +244,14 @@ func (p *CooklangParser) parseTokens(l *lexer.Lexer) (*Recipe, error) {
 			recipe.Steps = append(recipe.Steps, currentStep)
 			currentStep = Step{Components: []Component{}}
 
-		case token.INGREDIENT:
+		case token.INGREDIENT, token.OPTIONAL_INGREDIENT:
 			// Parse ingredient
 			ingredient, err := p.parseIngredient(l)
 			if err != nil {
 				return nil, fmt.Errorf("failed to parse ingredient: %w", err)
+			}
+			if tok.Type == token.OPTIONAL_INGREDIENT {
+				ingredient.Optional = true
 			}
 			currentStep.Components = append(currentStep.Components, ingredient)
 

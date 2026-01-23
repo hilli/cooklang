@@ -322,3 +322,115 @@ tests:
           - type: text
             value: " to the mix."
       metadata: {}
+
+  # ==========================================
+  # Optional Ingredients @?
+  # ==========================================
+
+  testOptionalIngredientSimple:
+    source: |
+      Add @?thyme{2%sprigs} if desired.
+    result:
+      steps:
+        -
+          - type: text
+            value: "Add "
+          - type: ingredient
+            name: "thyme"
+            quantity: 2
+            units: "sprigs"
+            optional: true
+          - type: text
+            value: " if desired."
+      metadata: {}
+
+  testOptionalIngredientNoQuantity:
+    source: |
+      Garnish with @?parsley.
+    result:
+      steps:
+        -
+          - type: text
+            value: "Garnish with "
+          - type: ingredient
+            name: "parsley"
+            quantity: "some"
+            units: ""
+            optional: true
+          - type: text
+            value: "."
+      metadata: {}
+
+  testOptionalIngredientWithFixed:
+    source: |
+      Add @?salt{=1%pinch} to taste.
+    result:
+      steps:
+        -
+          - type: text
+            value: "Add "
+          - type: ingredient
+            name: "salt"
+            quantity: 1
+            units: "pinch"
+            optional: true
+            fixed: true
+          - type: text
+            value: " to taste."
+      metadata: {}
+
+  testOptionalAndRegularMixed:
+    source: |
+      Mix @flour{500%g} with @water{300%ml} and @?herbs{}.
+    result:
+      steps:
+        -
+          - type: text
+            value: "Mix "
+          - type: ingredient
+            name: "flour"
+            quantity: 500
+            units: "g"
+          - type: text
+            value: " with "
+          - type: ingredient
+            name: "water"
+            quantity: 300
+            units: "ml"
+          - type: text
+            value: " and "
+          - type: ingredient
+            name: "herbs"
+            quantity: "some"
+            units: ""
+            optional: true
+          - type: text
+            value: "."
+      metadata: {}
+
+  testOptionalIngredientMultiWord:
+    source: |
+      Add @?fresh thyme{1%sprig} for aroma.
+    result:
+      steps:
+        -
+          - type: text
+            value: "Add "
+          - type: ingredient
+            name: "fresh thyme"
+            quantity: 1
+            units: "sprig"
+            optional: true
+          - type: text
+            value: " for aroma."
+      metadata: {}
+
+  testOptionalIngredientAsText:
+    source: |
+      Use @? as a placeholder.
+    result:
+      steps:
+        -
+          - type: text
+            value: "Use @? as a placeholder."
+      metadata: {}

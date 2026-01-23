@@ -1321,3 +1321,113 @@ Cook for ~{10%minutes}.`
 		t.Error("Expected to find cooking note")
 	}
 }
+
+// TestOptionalIngredient tests parsing of optional ingredients with @? syntax
+func TestOptionalIngredient(t *testing.T) {
+	tests := []struct {
+		name     string
+		input    string
+		expected []Component
+	}{
+		{
+			name:  "simple optional ingredient with quantity",
+			input: "Add @?thyme{2%sprigs} if desired.",
+			expected: []Component{
+				{Type: "text", Value: "Add "},
+				{Type: "ingredient", Name: "thyme", Quantity: "2", Unit: "sprigs", Optional: true},
+				{Type: "text", Value: " if desired."},
+			},
+		},
+		{
+			name:  "optional ingredient without braces",
+			input: "Garnish with @?parsley.",
+			expected: []Component{
+				{Type: "text", Value: "Garnish with "},
+				{Type: "ingredient", Name: "parsley", Quantity: "some", Optional: true},
+				{Type: "text", Value: "."},
+			},
+		},
+		{
+			name:  "optional ingredient with empty braces",
+			input: "Add @?herbs{} for flavor.",
+			expected: []Component{
+				{Type: "text", Value: "Add "},
+				{Type: "ingredient", Name: "herbs", Quantity: "some", Optional: true},
+				{Type: "text", Value: " for flavor."},
+			},
+		},
+		{
+			name:  "optional and fixed combined",
+			input: "Add @?salt{=1%pinch} to taste.",
+			expected: []Component{
+				{Type: "text", Value: "Add "},
+				{Type: "ingredient", Name: "salt", Quantity: "1", Unit: "pinch", Optional: true, Fixed: true},
+				{Type: "text", Value: " to taste."},
+			},
+		},
+		{
+			name:  "mixed regular and optional ingredients",
+			input: "Mix @flour{500%g} with @?herbs{}.",
+			expected: []Component{
+				{Type: "text", Value: "Mix "},
+				{Type: "ingredient", Name: "flour", Quantity: "500", Unit: "g"},
+				{Type: "text", Value: " with "},
+				{Type: "ingredient", Name: "herbs", Quantity: "some", Optional: true},
+				{Type: "text", Value: "."},
+			},
+		},
+		{
+			name:  "optional ingredient with multi-word name",
+			input: "Add @?fresh thyme{1%sprig} for aroma.",
+			expected: []Component{
+				{Type: "text", Value: "Add "},
+				{Type: "ingredient", Name: "fresh thyme", Quantity: "1", Unit: "sprig", Optional: true},
+				{Type: "text", Value: " for aroma."},
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			p := New()
+			recipe, err := p.ParseString(tt.input)
+			if err != nil {
+				t.Fatalf("Unexpected error: %v", err)
+			}
+
+			if len(recipe.Steps) == 0 {
+				t.Fatal("Expected at least one step")
+			}
+
+			step := recipe.Steps[0]
+			if len(step.Components) != len(tt.expected) {
+				t.Fatalf("Expected %d components, got %d: %+v", len(tt.expected), len(step.Components), step.Components)
+			}
+
+			for i, expected := range tt.expected {
+				actual := step.Components[i]
+				if actual.Type != expected.Type {
+					t.Errorf("Component %d: expected type %q, got %q", i, expected.Type, actual.Type)
+				}
+				if actual.Name != expected.Name {
+					t.Errorf("Component %d: expected name %q, got %q", i, expected.Name, actual.Name)
+				}
+				if actual.Value != expected.Value {
+					t.Errorf("Component %d: expected value %q, got %q", i, expected.Value, actual.Value)
+				}
+				if actual.Quantity != expected.Quantity {
+					t.Errorf("Component %d: expected quantity %q, got %q", i, expected.Quantity, actual.Quantity)
+				}
+				if actual.Unit != expected.Unit {
+					t.Errorf("Component %d: expected unit %q, got %q", i, expected.Unit, actual.Unit)
+				}
+				if actual.Optional != expected.Optional {
+					t.Errorf("Component %d: expected optional %v, got %v", i, expected.Optional, actual.Optional)
+				}
+				if actual.Fixed != expected.Fixed {
+					t.Errorf("Component %d: expected fixed %v, got %v", i, expected.Fixed, actual.Fixed)
+				}
+			}
+		})
+	}
+}

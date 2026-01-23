@@ -650,3 +650,134 @@ func TestNote(t *testing.T) {
 		})
 	}
 }
+
+// TestOptionalIngredient tests optional ingredient tokenization @?
+func TestOptionalIngredient(t *testing.T) {
+	tests := []struct {
+		name           string
+		input          string
+		expectedTokens []struct {
+			tokenType token.TokenType
+			literal   string
+		}
+	}{
+		{
+			name:  "simple optional ingredient",
+			input: "@?thyme",
+			expectedTokens: []struct {
+				tokenType token.TokenType
+				literal   string
+			}{
+				{token.OPTIONAL_INGREDIENT, "@?"},
+				{token.IDENT, "thyme"},
+				{token.EOF, ""},
+			},
+		},
+		{
+			name:  "optional ingredient with braces",
+			input: "@?thyme{2%sprigs}",
+			expectedTokens: []struct {
+				tokenType token.TokenType
+				literal   string
+			}{
+				{token.OPTIONAL_INGREDIENT, "@?"},
+				{token.IDENT, "thyme"},
+				{token.LBRACE, "{"},
+				{token.IDENT, "2"},
+				{token.PERCENT, "%"},
+				{token.IDENT, "sprigs"},
+				{token.RBRACE, "}"},
+				{token.EOF, ""},
+			},
+		},
+		{
+			name:  "optional ingredient inline",
+			input: "Add @?parsley for garnish",
+			expectedTokens: []struct {
+				tokenType token.TokenType
+				literal   string
+			}{
+				{token.IDENT, "Add"},
+				{token.WHITESPACE, " "},
+				{token.OPTIONAL_INGREDIENT, "@?"},
+				{token.IDENT, "parsley"},
+				{token.WHITESPACE, " "},
+				{token.IDENT, "for"},
+				{token.WHITESPACE, " "},
+				{token.IDENT, "garnish"},
+				{token.EOF, ""},
+			},
+		},
+		{
+			name:  "@? not followed by identifier - treated as text",
+			input: "Use @? as placeholder",
+			expectedTokens: []struct {
+				tokenType token.TokenType
+				literal   string
+			}{
+				{token.IDENT, "Use"},
+				{token.WHITESPACE, " "},
+				{token.ILLEGAL, "@"},
+				{token.ILLEGAL, "?"},
+				{token.WHITESPACE, " "},
+				{token.IDENT, "as"},
+				{token.WHITESPACE, " "},
+				{token.IDENT, "placeholder"},
+				{token.EOF, ""},
+			},
+		},
+		{
+			name:  "@? at end of input",
+			input: "test @?",
+			expectedTokens: []struct {
+				tokenType token.TokenType
+				literal   string
+			}{
+				{token.IDENT, "test"},
+				{token.WHITESPACE, " "},
+				{token.ILLEGAL, "@"},
+				{token.ILLEGAL, "?"},
+				{token.EOF, ""},
+			},
+		},
+		{
+			name:  "mixed regular and optional ingredients",
+			input: "@flour{500%g} and @?herbs{}",
+			expectedTokens: []struct {
+				tokenType token.TokenType
+				literal   string
+			}{
+				{token.INGREDIENT, "@"},
+				{token.IDENT, "flour"},
+				{token.LBRACE, "{"},
+				{token.IDENT, "500"},
+				{token.PERCENT, "%"},
+				{token.IDENT, "g"},
+				{token.RBRACE, "}"},
+				{token.WHITESPACE, " "},
+				{token.IDENT, "and"},
+				{token.WHITESPACE, " "},
+				{token.OPTIONAL_INGREDIENT, "@?"},
+				{token.IDENT, "herbs"},
+				{token.LBRACE, "{"},
+				{token.RBRACE, "}"},
+				{token.EOF, ""},
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			l := New(tt.input)
+			for i, expected := range tt.expectedTokens {
+				tok := l.NextToken()
+				if tok.Type != expected.tokenType {
+					t.Errorf("token[%d]: expected type %s, got %s", i, expected.tokenType, tok.Type)
+				}
+				if tok.Literal != expected.literal {
+					t.Errorf("token[%d]: expected literal %q, got %q", i, expected.literal, tok.Literal)
+				}
+			}
+		})
+	}
+}

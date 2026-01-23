@@ -97,21 +97,25 @@ func (mr MarkdownRenderer) RenderRecipe(recipe *cooklang.Recipe) string {
 
 		for _, ingredient := range ingredients.Ingredients {
 			result.WriteString("- ")
+			optionalSuffix := ""
+			if ingredient.Optional {
+				optionalSuffix = " *(optional)*"
+			}
 			if ingredient.Quantity > 0 {
 				if ingredient.Unit != "" {
-					result.WriteString(fmt.Sprintf("**%g %s** %s\n", ingredient.Quantity, ingredient.Unit, ingredient.Name))
+					result.WriteString(fmt.Sprintf("**%g %s** %s%s\n", ingredient.Quantity, ingredient.Unit, ingredient.Name, optionalSuffix))
 				} else {
-					result.WriteString(fmt.Sprintf("**%g** %s\n", ingredient.Quantity, ingredient.Name))
+					result.WriteString(fmt.Sprintf("**%g** %s%s\n", ingredient.Quantity, ingredient.Name, optionalSuffix))
 				}
 			} else if ingredient.Quantity == -1 {
 				// "some" quantity
 				if ingredient.Unit != "" {
-					result.WriteString(fmt.Sprintf("**some %s** %s\n", ingredient.Unit, ingredient.Name))
+					result.WriteString(fmt.Sprintf("**some %s** %s%s\n", ingredient.Unit, ingredient.Name, optionalSuffix))
 				} else {
-					result.WriteString(fmt.Sprintf("**some** %s\n", ingredient.Name))
+					result.WriteString(fmt.Sprintf("**some** %s%s\n", ingredient.Name, optionalSuffix))
 				}
 			} else {
-				result.WriteString(fmt.Sprintf("%s\n", ingredient.Name))
+				result.WriteString(fmt.Sprintf("%s%s\n", ingredient.Name, optionalSuffix))
 			}
 		}
 		result.WriteString("\n")
@@ -176,6 +180,9 @@ func (mr MarkdownRenderer) renderComponent(result *strings.Builder, currentCompo
 		}
 		if comp.Annotation != "" {
 			fmt.Fprintf(result, " (%s)", comp.Annotation)
+		}
+		if comp.Optional {
+			result.WriteString(" *(optional)*")
 		}
 	case *cooklang.Cookware:
 		if comp.Quantity > 1 {

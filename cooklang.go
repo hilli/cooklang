@@ -244,20 +244,24 @@ func (Comment) isStepComponent()     {}
 func (Note) isStepComponent()        {}
 
 // Render returns the Cooklang syntax representation of this ingredient.
-// Examples: "@flour{500%g}", "@salt{}", "@milk{2%cups}(cold)", "@yeast{=1%packet}"
+// Examples: "@flour{500%g}", "@salt{}", "@milk{2%cups}(cold)", "@yeast{=1%packet}", "@?thyme{2%sprigs}"
 func (i Ingredient) Render() string {
 	var result string
+	prefix := "@"
+	if i.Optional {
+		prefix = "@?"
+	}
 	fixedPrefix := ""
 	if i.Fixed {
 		fixedPrefix = "="
 	}
 	if i.Quantity > 0 {
-		result = fmt.Sprintf("@%s{%s%g%%%s}", i.Name, fixedPrefix, i.Quantity, i.Unit)
+		result = fmt.Sprintf("%s%s{%s%g%%%s}", prefix, i.Name, fixedPrefix, i.Quantity, i.Unit)
 	} else if i.Quantity == -1 {
 		// -1 indicates "some" quantity
-		result = fmt.Sprintf("@%s{}", i.Name)
+		result = fmt.Sprintf("%s%s{}", prefix, i.Name)
 	} else {
-		result = fmt.Sprintf("@%s{}", i.Name)
+		result = fmt.Sprintf("%s%s{}", prefix, i.Name)
 	}
 	if i.Annotation != "" {
 		result += fmt.Sprintf("(%s)", i.Annotation)
@@ -266,9 +270,10 @@ func (i Ingredient) Render() string {
 }
 
 // RenderDisplay returns ingredient in plain text format suitable for display.
-// Examples: "2 cups flour", "500 g flour", "salt"
+// Examples: "2 cups flour", "500 g flour", "salt", "2 sprigs thyme (optional)"
 // Uses bartender-friendly fraction formatting (e.g., "1/2 oz" instead of "0.5 oz")
 // When quantity is unspecified (e.g., @salt{}), returns just the ingredient name.
+// Optional ingredients have "(optional)" appended.
 func (i Ingredient) RenderDisplay() string {
 	var result string
 	if i.Quantity > 0 && i.Unit != "" {
@@ -280,6 +285,9 @@ func (i Ingredient) RenderDisplay() string {
 	} else {
 		// Quantity == -1 (unspecified) or 0: just use the ingredient name
 		result = i.Name
+	}
+	if i.Optional {
+		result += " (optional)"
 	}
 	return result
 }
@@ -394,11 +402,13 @@ func (n Note) RenderDisplay() string {
 //
 // The Quantity field uses -1 to represent "some" (unspecified amount).
 // The Fixed field indicates a quantity that should not scale with servings (e.g., @salt{=1%tsp}).
+// The Optional field indicates an optional ingredient (e.g., @?thyme{2%sprigs}).
 type Ingredient struct {
 	Name           string        `json:"name,omitempty"`           // Ingredient name (e.g., "flour", "sugar")
 	Quantity       float32       `json:"quantity,omitempty"`       // Amount (-1 means "some", 0 means none specified)
 	Unit           string        `json:"unit,omitempty"`           // Unit of measurement (e.g., "g", "cup", "tbsp")
 	Fixed          bool          `json:"fixed,omitempty"`          // Fixed quantity doesn't scale with servings
+	Optional       bool          `json:"optional,omitempty"`       // Optional ingredient (can be omitted)
 	TypedUnit      *units.Unit   `json:"typed_unit,omitempty"`     // Typed unit for conversion operations
 	Subinstruction string        `json:"value,omitempty"`          // Additional preparation instructions
 	Annotation     string        `json:"annotation,omitempty"`     // Optional annotation (e.g., "finely chopped")
@@ -780,6 +790,7 @@ func ToCooklangRecipe(pRecipe *parser.Recipe) *Recipe {
 					Quantity:   quant,
 					Unit:       component.Unit,
 					Fixed:      component.Fixed,
+					Optional:   component.Optional,
 					TypedUnit:  CreateTypedUnit(component.Unit),
 					Annotation: component.Value,
 				}

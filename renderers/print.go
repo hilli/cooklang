@@ -188,6 +188,17 @@ const printCSS = `
     font-size: 10pt;
   }
 
+  .optional {
+    font-style: italic;
+    color: #666;
+  }
+
+  .optional-marker {
+    font-size: 9pt;
+    color: #888;
+    font-style: italic;
+  }
+
   .recipe-footer {
     margin-top: 1em;
     padding-top: 0.5em;
@@ -301,12 +312,19 @@ func (pr PrintRenderer) RenderRecipe(recipe *cooklang.Recipe) string {
 	if len(ingredients.Ingredients) > 0 {
 		result.WriteString("      <ul class=\"ingredients-list\">\n")
 		for _, ingredient := range ingredients.Ingredients {
-			result.WriteString("        <li>")
+			optionalClass := ""
+			if ingredient.Optional {
+				optionalClass = " optional"
+			}
+			result.WriteString(fmt.Sprintf("        <li class=\"%s\">", optionalClass))
 			qtyStr := pr.formatQuantity(ingredient.Quantity, ingredient.Unit)
 			if qtyStr != "" {
 				result.WriteString(fmt.Sprintf("<span class=\"ingredient-qty\">%s</span> ", qtyStr))
 			}
 			result.WriteString(fmt.Sprintf("<span class=\"ingredient-name\">%s</span>", html.EscapeString(ingredient.Name)))
+			if ingredient.Optional {
+				result.WriteString(" <span class=\"optional-marker\">(optional)</span>")
+			}
 			result.WriteString("</li>\n")
 		}
 		result.WriteString("      </ul>\n")
@@ -325,10 +343,17 @@ func (pr PrintRenderer) RenderRecipe(recipe *cooklang.Recipe) string {
 		for currentComponent != nil {
 			switch comp := currentComponent.(type) {
 			case *cooklang.Ingredient:
-				result.WriteString(fmt.Sprintf("<span class=\"ing\">%s</span>", html.EscapeString(comp.Name)))
+				optionalClass := ""
+				if comp.Optional {
+					optionalClass = " optional"
+				}
+				result.WriteString(fmt.Sprintf("<span class=\"ing%s\">%s</span>", optionalClass, html.EscapeString(comp.Name)))
 				if comp.Quantity > 0 {
 					qtyStr := pr.formatQuantity(comp.Quantity, comp.Unit)
 					result.WriteString(fmt.Sprintf(" <span class=\"qty\">(%s)</span>", qtyStr))
+				}
+				if comp.Optional {
+					result.WriteString(" <span class=\"optional-marker\">(optional)</span>")
 				}
 			case *cooklang.Cookware:
 				result.WriteString(fmt.Sprintf("<span class=\"cw\">%s</span>", html.EscapeString(comp.Name)))
