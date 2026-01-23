@@ -128,8 +128,20 @@ func (l *Lexer) NextToken() token.Token {
 	case '}':
 		tok = newToken(token.RBRACE, l.ch)
 	case '@':
-		// Only treat as INGREDIENT if immediately followed by an identifier character or underscore
-		if isIdentifierChar(l.peekChar()) || l.peekChar() == '_' {
+		// Check for optional ingredient: @?
+		if l.peekChar() == '?' {
+			// Peek at the character after the '?' to see if it's an identifier
+			charAfterQuestion := l.peekCharAt(1)
+			if isIdentifierChar(charAfterQuestion) || charAfterQuestion == '_' {
+				ch := l.ch
+				l.readChar() // consume '?'
+				tok = token.Token{Type: token.OPTIONAL_INGREDIENT, Literal: string(ch) + string(l.ch)}
+			} else {
+				// @? not followed by identifier - treat @ as text
+				tok = newToken(token.ILLEGAL, l.ch)
+			}
+		} else if isIdentifierChar(l.peekChar()) || l.peekChar() == '_' {
+			// Only treat as INGREDIENT if immediately followed by an identifier character or underscore
 			tok = newToken(token.INGREDIENT, l.ch)
 		} else {
 			// Treat as regular text if followed by whitespace or other characters

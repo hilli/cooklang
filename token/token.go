@@ -25,9 +25,10 @@ const (
 	IDENT = "IDENT"
 	INT   = "INT"
 
-	COOKTIME   = "~"
-	COOKWARE   = "#"
-	INGREDIENT = "@"
+	COOKTIME            = "~"
+	COOKWARE            = "#"
+	INGREDIENT          = "@"
+	OPTIONAL_INGREDIENT = "@?"
 
 	// Delimiters
 	COMMA     = ","

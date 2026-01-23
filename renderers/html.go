@@ -148,11 +148,18 @@ func (hr HTMLRenderer) RenderRecipe(recipe *cooklang.Recipe) string {
 func (hr HTMLRenderer) renderComponent(result *strings.Builder, currentComponent cooklang.StepComponent) {
 	switch comp := currentComponent.(type) {
 	case *cooklang.Ingredient:
+		ingredientClass := "ingredient"
+		if comp.Optional {
+			ingredientClass = "ingredient optional"
+		}
 		if comp.Quantity > 0 {
-			fmt.Fprintf(result, "<span class=\"ingredient\">%s</span> <span class=\"quantity\">(%g %s)</span>",
-				html.EscapeString(comp.Name), comp.Quantity, html.EscapeString(comp.Unit))
+			fmt.Fprintf(result, "<span class=\"%s\">%s</span> <span class=\"quantity\">(%g %s)</span>",
+				ingredientClass, html.EscapeString(comp.Name), comp.Quantity, html.EscapeString(comp.Unit))
 		} else {
-			fmt.Fprintf(result, "<span class=\"ingredient\">%s</span>", html.EscapeString(comp.Name))
+			fmt.Fprintf(result, "<span class=\"%s\">%s</span>", ingredientClass, html.EscapeString(comp.Name))
+		}
+		if comp.Optional {
+			result.WriteString(" <span class=\"optional-marker\">(optional)</span>")
 		}
 		if comp.Annotation != "" {
 			fmt.Fprintf(result, " <span class=\"annotation\">(%s)</span>", html.EscapeString(comp.Annotation))
