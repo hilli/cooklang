@@ -19,6 +19,7 @@ const (
 	NOTE           = ">"
 	SECTION        = "="
 	SECTION_HEADER = "SECTION_HEADER"
+	LINE_BREAK     = "LINE_BREAK"
 	NEWLINE        = "NEWLINE"
 	WHITESPACE     = "WHITESPACE"
 
@@ -29,6 +30,7 @@ const (
 	COOKWARE            = "#"
 	INGREDIENT          = "@"
 	OPTIONAL_INGREDIENT = "@?"
+	RECIPE_REFERENCE    = "@./"
 
 	// Delimiters
 	COMMA     = ","

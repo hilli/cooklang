@@ -220,7 +220,7 @@ func (s *Step) HasDisplayableContent() bool {
 	current := s.FirstComponent
 	for current != nil {
 		switch comp := current.(type) {
-		case *Ingredient, *Cookware, *Timer, *Section, *Note:
+		case *Ingredient, *Cookware, *Timer, *Section, *Note, *RecipeReference:
 			return true
 		case *Instruction:
 			// Check if text has any non-whitespace content
@@ -242,6 +242,7 @@ func (Ingredient) isStepComponent()  {}
 func (Section) isStepComponent()     {}
 func (Comment) isStepComponent()     {}
 func (Note) isStepComponent()        {}
+func (RecipeReference) isStepComponent() {}
 
 // Render returns the Cooklang syntax representation of this ingredient.
 // Examples: "@flour{500%g}", "@salt{}", "@milk{2%cups}(cold)", "@yeast{=1%packet}", "@?thyme{2%sprigs}"
@@ -505,6 +506,16 @@ type Comment struct {
 // > that continues here.
 type Note struct {
 	Text          string        `json:"text,omitempty"`           // Note text
+	NextComponent StepComponent `json:"next_component,omitempty"` // Next component in the step
+	CooklangRenderable
+}
+
+// RecipeReference represents a reference to another recipe file (e.g., @./sauces/Hollandaise{150%g}).
+// Path is relative to the recipe root directory, without the .cook extension.
+type RecipeReference struct {
+	Path          string        `json:"path"`                     // Relative path to the referenced recipe
+	Quantity      float32       `json:"quantity,omitempty"`       // Quantity (scaling factor, servings, or unit amount)
+	Unit          string        `json:"unit,omitempty"`           // Unit (e.g., "servings", "ml", or empty for factor)
 	NextComponent StepComponent `json:"next_component,omitempty"` // Next component in the step
 	CooklangRenderable
 }
@@ -833,6 +844,23 @@ func ToCooklangRecipe(pRecipe *parser.Recipe) *Recipe {
 				stepComp = &Note{
 					Text: component.Value,
 				}
+			case "recipeReference":
+				var refQty float32
+				if component.Quantity == "" || component.Quantity == "some" {
+					refQty = -1
+				} else {
+					refQty64, err := strconv.ParseFloat(component.Quantity, 32)
+					if err != nil {
+						refQty = -1
+					} else {
+						refQty = float32(refQty64)
+					}
+				}
+				stepComp = &RecipeReference{
+					Path:     component.Name,
+					Quantity: refQty,
+					Unit:     component.Unit,
+				}
 			}
 
 			if stepComp != nil {
@@ -1149,6 +1177,29 @@ func (n *Note) SetNext(next StepComponent) {
 // This implements the StepComponent interface for recipe step traversal.
 func (n *Note) GetNext() StepComponent {
 	return n.NextComponent
+}
+
+// SetNext sets the next component in the step's linked list.
+// This implements the StepComponent interface for recipe step traversal.
+func (r *RecipeReference) SetNext(next StepComponent) {
+	r.NextComponent = next
+}
+
+// GetNext returns the next component in the step's linked list.
+// This implements the StepComponent interface for recipe step traversal.
+func (r *RecipeReference) GetNext() StepComponent {
+	return r.NextComponent
+}
+
+// Render returns a human-readable string representation of the recipe reference.
+func (r *RecipeReference) Render() string {
+	if r.Unit != "" {
+		return fmt.Sprintf("@%s{%.4g%%%s}", r.Path, r.Quantity, r.Unit)
+	}
+	if r.Quantity > 0 {
+		return fmt.Sprintf("@%s{%.4g}", r.Path, r.Quantity)
+	}
+	return fmt.Sprintf("@%s{}", r.Path)
 }
 
 // IngredientList represents a collection of ingredients with unit consolidation capabilities.
@@ -2310,6 +2361,14 @@ func (r *Recipe) Scale(factor float64) *Recipe {
 				// Copy note unchanged
 				newComponent = &Note{
 					Text: comp.Text,
+				}
+
+			case *RecipeReference:
+				// Copy recipe reference unchanged (scaling is handled externally via resolver)
+				newComponent = &RecipeReference{
+					Path:     comp.Path,
+					Quantity: comp.Quantity,
+					Unit:     comp.Unit,
 				}
 			}
 

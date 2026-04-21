@@ -92,6 +92,13 @@ func (p *CooklangParser) parseTokens(l *lexer.Lexer) (*Recipe, error) {
 			}
 			recipe.Metadata = metadata
 
+		case token.LINE_BREAK:
+			// Hard line break (backslash at EOL) - preserve as newline within step
+			currentStep.Components = append(currentStep.Components, Component{
+				Type:  "text",
+				Value: "\n",
+			})
+
 		case token.NEWLINE:
 			// Handle newlines: single newline = space, double newline = new step
 			nextTok := l.NextToken()
@@ -114,6 +121,18 @@ func (p *CooklangParser) parseTokens(l *lexer.Lexer) (*Recipe, error) {
 				}
 				// Process the next token immediately here
 				switch nextTok.Type {
+				case token.LINE_BREAK:
+					// Hard line break after a newline-converted-to-space
+					currentStep.Components = append(currentStep.Components, Component{
+						Type:  "text",
+						Value: "\n",
+					})
+				case token.RECIPE_REFERENCE:
+					ref, err := p.parseRecipeReference(l, nextTok.Literal)
+					if err != nil {
+						return nil, fmt.Errorf("failed to parse recipe reference: %w", err)
+					}
+					currentStep.Components = append(currentStep.Components, ref)
 				case token.INGREDIENT, token.OPTIONAL_INGREDIENT:
 					ingredient, err := p.parseIngredient(l)
 					if err != nil {
@@ -254,6 +273,14 @@ func (p *CooklangParser) parseTokens(l *lexer.Lexer) (*Recipe, error) {
 				ingredient.Optional = true
 			}
 			currentStep.Components = append(currentStep.Components, ingredient)
+
+		case token.RECIPE_REFERENCE:
+			// Parse recipe reference
+			ref, err := p.parseRecipeReference(l, tok.Literal)
+			if err != nil {
+				return nil, fmt.Errorf("failed to parse recipe reference: %w", err)
+			}
+			currentStep.Components = append(currentStep.Components, ref)
 
 		case token.COOKWARE:
 			// Parse cookware
@@ -586,6 +613,32 @@ func (p *CooklangParser) parseYAMLMetadata(yamlContent string) (map[string]strin
 }
 
 // parseIngredient parses an ingredient token and its quantity/unit
+// parseRecipeReference parses a recipe reference (e.g., @./sauces/Hollandaise{150%g})
+// The path has already been read by the lexer and is passed in as the path parameter.
+func (p *CooklangParser) parseRecipeReference(l *lexer.Lexer, path string) (Component, error) {
+	component := Component{
+		Type: "recipeReference",
+		Name: path,
+	}
+
+	// Check for quantity in braces
+	tok := l.NextToken()
+	if tok.Type == token.LBRACE {
+		quantity, unit, _, err := p.parseQuantityAndUnit(l)
+		if err != nil {
+			return component, err
+		}
+		component.Quantity = quantity
+		component.Unit = unit
+		return component, nil
+	}
+
+	// No braces — put back the token, default to "some"
+	l.PutBackToken(tok)
+	component.Quantity = "some"
+	return component, nil
+}
+
 func (p *CooklangParser) parseIngredient(l *lexer.Lexer) (Component, error) {
 	component := Component{Type: "ingredient"}
 
@@ -1100,33 +1153,37 @@ func (p *CooklangParser) compressTextElements(recipe *Recipe) {
 		var compressed []Component
 		var textBuffer []string
 
+		flushText := func() {
+			if len(textBuffer) > 0 {
+				compressedText := strings.Join(textBuffer, "")
+				compressed = append(compressed, Component{
+					Type:  "text",
+					Value: compressedText,
+				})
+				textBuffer = nil
+			}
+		}
+
 		for _, component := range step.Components {
 			if component.Type == "text" {
-				// Accumulate text components without adding spaces
-				textBuffer = append(textBuffer, component.Value)
+				if component.Value == "\n" {
+					// Hard line break — flush preceding text and keep as separate component
+					flushText()
+					compressed = append(compressed, component)
+				} else {
+					// Accumulate text components without adding spaces
+					textBuffer = append(textBuffer, component.Value)
+				}
 			} else {
 				// Non-text component: flush any accumulated text first
-				if len(textBuffer) > 0 {
-					compressedText := strings.Join(textBuffer, "")
-					compressed = append(compressed, Component{
-						Type:  "text",
-						Value: compressedText,
-					})
-					textBuffer = nil
-				}
+				flushText()
 				// Add the non-text component
 				compressed = append(compressed, component)
 			}
 		}
 
 		// Flush any remaining text at the end
-		if len(textBuffer) > 0 {
-			compressedText := strings.Join(textBuffer, "")
-			compressed = append(compressed, Component{
-				Type:  "text",
-				Value: compressedText,
-			})
-		}
+		flushText()
 
 		// Replace the step's components with the compressed version
 		step.Components = compressed
