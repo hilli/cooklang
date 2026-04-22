@@ -434,3 +434,302 @@ tests:
           - type: text
             value: "Use @? as a placeholder."
       metadata: {}
+
+  # ==========================================
+  # Backslash Line Breaks
+  # ==========================================
+  # A backslash (\) at the end of a line forces a line break within
+  # the same step, instead of collapsing to a space.
+
+  testBackslashLineBreakSimple:
+    source: "First line\\\nSecond line"
+    result:
+      steps:
+        -
+          - type: text
+            value: "First line"
+          - type: text
+            value: "\n"
+          - type: text
+            value: "Second line"
+      metadata: {}
+
+  testBackslashLineBreakWithIngredients:
+    source: "Lay out the @rice paper{1}.\\\nTop with @avocado{1/2}."
+    result:
+      steps:
+        -
+          - type: text
+            value: "Lay out the "
+          - type: ingredient
+            name: "rice paper"
+            quantity: 1
+            units: ""
+          - type: text
+            value: "."
+          - type: text
+            value: "\n"
+          - type: text
+            value: "Top with "
+          - type: ingredient
+            name: "avocado"
+            quantity: 0.5
+            units: ""
+          - type: text
+            value: "."
+      metadata: {}
+
+  testBackslashLineBreakMultiple:
+    source: "Line one\\\nLine two\\\nLine three"
+    result:
+      steps:
+        -
+          - type: text
+            value: "Line one"
+          - type: text
+            value: "\n"
+          - type: text
+            value: "Line two"
+          - type: text
+            value: "\n"
+          - type: text
+            value: "Line three"
+      metadata: {}
+
+  testBackslashLineBreakCRLF:
+    source: "First line\\\r\nSecond line"
+    result:
+      steps:
+        -
+          - type: text
+            value: "First line"
+          - type: text
+            value: "\n"
+          - type: text
+            value: "Second line"
+      metadata: {}
+
+  testBackslashLineBreakNotAtEOL:
+    source: |
+      Use a back\slash in the middle.
+    result:
+      steps:
+        -
+          - type: text
+            value: "Use a back\\slash in the middle."
+      metadata: {}
+
+  testBackslashLineBreakWithSpacesBeforeNewline:
+    source: "Trailing spaces\\  \nNext line"
+    result:
+      steps:
+        -
+          - type: text
+            value: "Trailing spaces"
+          - type: text
+            value: "\n"
+          - type: text
+            value: "Next line"
+      metadata: {}
+
+  testBackslashLineBreakAtEndOfInput:
+    source: "End of input\\"
+    result:
+      steps:
+        -
+          - type: text
+            value: "End of input\\"
+      metadata: {}
+
+  testBackslashLineBreakWithSections:
+    source: "= Prep =\nStep one\\\nStep two"
+    result:
+      steps:
+        -
+          - type: section
+            name: "Prep"
+          - type: text
+            value: " Step one"
+          - type: text
+            value: "\n"
+          - type: text
+            value: "Step two"
+      metadata: {}
+
+  # ==========================================
+  # Recipe References @./path/to/recipe{qty}
+  # ==========================================
+  # References to other .cook files as ingredients.
+  # Path is relative to recipe root, without the .cook extension.
+
+  testRecipeReferenceSimple:
+    source: |
+      Pour over with @./sauces/Hollandaise{150%g}.
+    result:
+      steps:
+        -
+          - type: text
+            value: "Pour over with "
+          - type: recipeReference
+            name: "./sauces/Hollandaise"
+            quantity: 150
+            units: "g"
+          - type: text
+            value: "."
+      metadata: {}
+
+  testRecipeReferenceNoQuantity:
+    source: |
+      Serve with @./sides/green salad{}.
+    result:
+      steps:
+        -
+          - type: text
+            value: "Serve with "
+          - type: recipeReference
+            name: "./sides/green salad"
+            quantity: "some"
+            units: ""
+          - type: text
+            value: "."
+      metadata: {}
+
+  testRecipeReferenceNoUnit:
+    source: |
+      Make @./bread{2} batches.
+    result:
+      steps:
+        -
+          - type: text
+            value: "Make "
+          - type: recipeReference
+            name: "./bread"
+            quantity: 2
+            units: ""
+          - type: text
+            value: " batches."
+      metadata: {}
+
+  testRecipeReferenceServings:
+    source: |
+      Prepare @./pasta carbonara{4%servings} for dinner.
+    result:
+      steps:
+        -
+          - type: text
+            value: "Prepare "
+          - type: recipeReference
+            name: "./pasta carbonara"
+            quantity: 4
+            units: "servings"
+          - type: text
+            value: " for dinner."
+      metadata: {}
+
+  testRecipeReferenceNestedPath:
+    source: |
+      Add @./mains/pasta/carbonara{2%servings} to the menu.
+    result:
+      steps:
+        -
+          - type: text
+            value: "Add "
+          - type: recipeReference
+            name: "./mains/pasta/carbonara"
+            quantity: 2
+            units: "servings"
+          - type: text
+            value: " to the menu."
+      metadata: {}
+
+  testRecipeReferenceWithText:
+    source: |
+      Mix @flour{500%g} and top with @./sauces/tomato{100%ml}.
+    result:
+      steps:
+        -
+          - type: text
+            value: "Mix "
+          - type: ingredient
+            name: "flour"
+            quantity: 500
+            units: "g"
+          - type: text
+            value: " and top with "
+          - type: recipeReference
+            name: "./sauces/tomato"
+            quantity: 100
+            units: "ml"
+          - type: text
+            value: "."
+      metadata: {}
+
+  testRecipeReferenceMultiple:
+    source: |
+      Serve @./mains/chicken stir fry{4%servings} with @./sides/steamed rice{4%servings}.
+    result:
+      steps:
+        -
+          - type: text
+            value: "Serve "
+          - type: recipeReference
+            name: "./mains/chicken stir fry"
+            quantity: 4
+            units: "servings"
+          - type: text
+            value: " with "
+          - type: recipeReference
+            name: "./sides/steamed rice"
+            quantity: 4
+            units: "servings"
+          - type: text
+            value: "."
+      metadata: {}
+
+  testRecipeReferenceUnitsScaling:
+    source: |
+      Pour @./sauces/hollandaise{150%ml} over the dish.
+    result:
+      steps:
+        -
+          - type: text
+            value: "Pour "
+          - type: recipeReference
+            name: "./sauces/hollandaise"
+            quantity: 150
+            units: "ml"
+          - type: text
+            value: " over the dish."
+      metadata: {}
+
+  testRecipeReferenceParentPath:
+    source: |
+      Use @../shared/stock{500%ml} as the base.
+    result:
+      steps:
+        -
+          - type: text
+            value: "Use "
+          - type: recipeReference
+            name: "../shared/stock"
+            quantity: 500
+            units: "ml"
+          - type: text
+            value: " as the base."
+      metadata: {}
+
+  testRecipeReferenceFactorOnly:
+    source: |
+      Make double @./bread{2}.
+    result:
+      steps:
+        -
+          - type: text
+            value: "Make double "
+          - type: recipeReference
+            name: "./bread"
+            quantity: 2
+            units: ""
+          - type: text
+            value: "."
+      metadata: {}

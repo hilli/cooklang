@@ -128,6 +128,10 @@ func (l *Lexer) NextToken() token.Token {
 	case '}':
 		tok = newToken(token.RBRACE, l.ch)
 	case '@':
+		// Check for recipe reference: @./ or @../
+		if l.peekChar() == '.' && (l.peekCharAt(1) == '/' || (l.peekCharAt(1) == '.' && l.peekCharAt(2) == '/')) {
+			return l.readRecipeReferencePath()
+		}
 		// Check for optional ingredient: @?
 		if l.peekChar() == '?' {
 			// Peek at the character after the '?' to see if it's an identifier
@@ -166,6 +170,33 @@ func (l *Lexer) NextToken() token.Token {
 	case 0:
 		tok.Literal = ""
 		tok.Type = token.EOF
+	case '\\':
+		// Backslash at end of line (optionally with trailing spaces) = hard line break
+		// Consume trailing spaces/tabs after backslash
+		savedPos := l.position
+		savedReadPos := l.readPosition
+		savedCh := l.ch
+		l.readChar() // consume backslash
+		for l.ch == ' ' || l.ch == '\t' {
+			l.readChar()
+		}
+		if l.ch == '\n' || l.ch == '\r' {
+			// Consume the newline
+			if l.ch == '\r' {
+				l.readChar()
+				if l.ch == '\n' {
+					l.readChar()
+				}
+			} else {
+				l.readChar()
+			}
+			return token.Token{Type: token.LINE_BREAK, Literal: "\n"}
+		}
+		// Not at EOL — restore position and emit backslash as literal text
+		l.position = savedPos
+		l.readPosition = savedReadPos
+		l.ch = savedCh
+		tok = newToken(token.ILLEGAL, l.ch)
 	default:
 		if isIdentifierChar(l.ch) {
 			tok.Literal = l.readIdentifyer()
@@ -477,6 +508,26 @@ func (l *Lexer) readSectionHeader() token.Token {
 	return token.Token{
 		Type:    token.SECTION_HEADER,
 		Literal: sectionName,
+	}
+}
+
+// readRecipeReferencePath reads a recipe reference path starting with @./ or @../
+// The path continues until { (quantity start) or whitespace/punctuation that ends a word.
+// Returns a RECIPE_REFERENCE token with the path (including ./ or ../ prefix) as literal.
+func (l *Lexer) readRecipeReferencePath() token.Token {
+	l.readChar() // consume @
+
+	// Read the path: starts with ./ or ../
+	start := l.position
+	for l.ch != '{' && l.ch != '\n' && l.ch != '\r' && l.ch != 0 {
+		l.readChar()
+	}
+
+	path := strings.TrimSpace(l.input[start:l.position])
+
+	return token.Token{
+		Type:    token.RECIPE_REFERENCE,
+		Literal: path,
 	}
 }
 
